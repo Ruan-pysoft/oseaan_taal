@@ -6,6 +6,7 @@ const char *executable = "os";
 
 const char *files[] = {
 	"main",
+	"parser",
 };
 
 const char *flags[] = {
