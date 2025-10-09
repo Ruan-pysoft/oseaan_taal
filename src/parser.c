@@ -8,6 +8,19 @@ void token_destroy(struct token tok) {
 		default: break;
 	}
 }
+struct token token_copy(struct token tok) {
+	struct token res = {
+		.type = tok.type,
+		.value = {0},
+	};
+	switch (tok.type) {
+		#define X(tt) case tt: { if (tok.value.s_val) res.value.s_val = strdup(tok.value.s_val); } break;
+		S_VAL_TOKENS
+		#undef X
+		default: break;
+	}
+	return res;
+}
 void print_token(struct token tok) {
 	Nob_String_Builder sb = {0};
 	sb_append_token(&sb, tok);
@@ -119,6 +132,29 @@ void expr_destroy(struct expr expr) {
 		}
 	}
 }
+struct expr expr_copy(struct expr expr) {
+	struct expr res = {
+		.type = expr.type,
+		.value = {{0}},
+	};
+	switch (expr.type) {
+		case EXPR_FUNCALL: {
+			for (size_t i = 0; i < expr.value.funcall.count; ++i) {
+				nob_da_append(&res.value.funcall, expr_copy(expr.value.funcall.items[i]));
+			}
+			res.value.funcall.naam = strdup(expr.value.funcall.naam);
+		} break;
+		case EXPR_COMPOUND: {
+			for (size_t i = 0; i < expr.value.compound.count; ++i) {
+				nob_da_append(&res.value.compound, expr_copy(expr.value.compound.items[i]));
+			}
+		} break;
+		case EXPR_STR_LIT: {
+			res.value.str_lit = strdup(expr.value.str_lit);
+		}
+	}
+	return res;
+}
 void print_expr(struct expr expr) {
 	Nob_String_Builder sb = {0};
 	sb_append_expr(&sb, expr);
@@ -152,6 +188,11 @@ void sb_append_expr(Nob_String_Builder *sb, struct expr expr) {
 void insluiting_destroy(struct insluiting insluiting) {
 	free(insluiting.module);
 }
+struct insluiting insluiting_copy(struct insluiting insluiting) {
+	struct insluiting res = {0};
+	res.module = strdup(insluiting.module);
+	return res;
+}
 void print_insluiting(struct insluiting insluiting) {
 	Nob_String_Builder sb = {0};
 	sb_append_insluiting(&sb, insluiting);
@@ -165,6 +206,12 @@ void sb_append_insluiting(Nob_String_Builder *sb, struct insluiting insluiting) 
 void funksie_destroy(struct funksie funksie) {
 	free(funksie.naam);
 	expr_destroy(funksie.lyf);
+}
+struct funksie funksie_copy(struct funksie funksie) {
+	struct funksie res = {0};
+	res.naam = strdup(funksie.naam);
+	res.lyf = expr_copy(funksie.lyf);
+	return res;
 }
 void print_funksie(struct funksie funksie) {
 	Nob_String_Builder sb = {0};
@@ -191,6 +238,22 @@ void ast_destroy(struct ast *ast) {
 		} break;
 		case AST_EOF: break;
 	}
+}
+struct ast *ast_copy(struct ast *ast) {
+	struct ast *res = calloc(1, sizeof(*res));
+	switch (ast->type) {
+		case EXPR: {
+			res->value.expr = expr_copy(ast->value.expr);
+		} break;
+		case INSLUITING: {
+			res->value.insluiting = insluiting_copy(ast->value.insluiting);
+		} break;
+		case FUNKSIE_DEFINISIE: {
+			res->value.funksie_definisie = funksie_copy(ast->value.funksie_definisie);
+		} break;
+		case AST_EOF: break;
+	}
+	return res;
 }
 void print_ast(struct ast *ast) {
 	Nob_String_Builder sb = {0};
@@ -243,8 +306,8 @@ struct token *parse_advance(struct parse_state *state) {
 		nob_log(NOB_ERROR, "%s,%d: %s", __FILE__, __LINE__, err.items); \
 		exit(1); \
 	 } while (0)
-#define VERB(str) if (state->verbose) nob_log(NOB_INFO, str);
-#define VERBF(fmt, ...) if (state->verbose) nob_log(NOB_INFO, fmt, __VA_ARGS__);
+#define VERB(str) if (state->verbose) nob_log(NOB_INFO, str)
+#define VERBF(fmt, ...) if (state->verbose) nob_log(NOB_INFO, fmt, __VA_ARGS__)
 #define PARSE_ENTER(what) \
 	Nob_String_Builder err = {0}; \
 	nob_sb_append_cstr(&err, what ": "); \

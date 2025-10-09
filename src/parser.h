@@ -35,6 +35,7 @@ struct token {
 	union token_value value;
 };
 void token_destroy(struct token tok);
+struct token token_copy(struct token tok);
 void print_token(struct token tok);
 void sb_append_token(Nob_String_Builder *sb, struct token tok);
 
@@ -76,6 +77,7 @@ struct expr {
 	union expr_value value;
 };
 void expr_destroy(struct expr expr);
+struct expr expr_copy(struct expr expr);
 void print_expr(struct expr expr);
 void sb_append_expr(Nob_String_Builder *sb, struct expr expr);
 
@@ -83,6 +85,7 @@ struct insluiting {
 	char *module;
 };
 void insluiting_destroy(struct insluiting insluiting);
+struct insluiting insluiting_copy(struct insluiting insluiting);
 void print_insluiting(struct insluiting insluiting);
 void sb_append_insluiting(Nob_String_Builder *sb, struct insluiting insluiting);
 
@@ -91,6 +94,7 @@ struct funksie {
 	struct expr lyf;
 };
 void funksie_destroy(struct funksie funksie);
+struct funksie funksie_copy(struct funksie funksie);
 void print_funksie(struct funksie funksie);
 void sb_append_funksie(Nob_String_Builder *sb, struct funksie funksie);
 
@@ -105,6 +109,7 @@ struct ast {
 	union ast_value value;
 };
 void ast_destroy(struct ast *ast);
+struct ast *ast_copy(struct ast *ast);
 void print_ast(struct ast *ast);
 void sb_append_ast(Nob_String_Builder *sb, struct ast *ast);
 
