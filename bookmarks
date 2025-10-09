@@ -1,0 +1,6 @@
+Possible sources to look at (might be handy in the future)
+
+Assembly:
+ - Looks like a relatively in-depth tutorial covering the basics from someone associated with some university's CS department: https://cs.lmu.edu/~ray/notes/nasmtutorial/
+ - Wiki page on the DWARF debug info format: https://en.wikipedia.org/wiki/DWARF
+ - TODO: Find out how to embed DWARF debug info into an assembly file?

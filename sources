@@ -1,0 +1,6 @@
+Stuff I used to help me
+
+Assembly:
+ - An assembly tutorial, for getting the hang of what NASM assembly looks like: https://p403n1x87.github.io/getting-started-with-x86-64-assembly-on-linux.html
+ - The wiki page for the System V ABI to figure out how to pass arguments around: https://en.wikipedia.org/wiki/X86_calling_conventions#System_V_AMD64_ABI
+ - Checking if eax < 0: https://en.wikibooks.org/wiki/X86_Assembly/Control_Flow#Jump_if_Signed
