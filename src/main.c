@@ -66,6 +66,12 @@ struct target_x86_64 {
 	Nob_String_Builder data;
 	Nob_String_Builder code;
 };
+void target_x86_64_destroy(struct target_x86_64 target) {
+	nob_da_free(target);
+	nob_sb_free(target.prelude);
+	nob_sb_free(target.data);
+	nob_sb_free(target.code);
+}
 #define X86_64_INT_ARG0 "rdi"
 #define X86_64_INT_ARG1 "rsi"
 #define X86_64_INT_ARG2 "rdx"
@@ -82,17 +88,28 @@ const char *x86_64_int_arg_regs[] = {
 };
 
 struct target_interpret {
-	struct funksie *items;
+	struct ifunksie {
+		char *naam;
+		bool is_builtin;
+		union {
+			struct expr lyf;
+			struct oseaan_value (*builtin)(struct oseaan_value*);
+		};
+	} *items;
 	size_t count;
 	size_t capacity;
 
 	struct oseaan_value last_val;
 };
-
-union target {
-	struct target_x86_64 x86_64;
-	struct target_interpret interpret;
-};
+void target_interpret_destroy(struct target_interpret target) {
+	for (size_t i = 0; i < target.count; ++i) {
+		free(target.items[i].naam);
+		if (!target.items[i].is_builtin) {
+			expr_destroy(target.items[i].lyf);
+		}
+	}
+	nob_da_free(target);
+}
 
 struct program_state {
 	struct function_signature *items;
@@ -100,7 +117,10 @@ struct program_state {
 	size_t capacity;
 
 	enum target_type type;
-	union target target;
+	union {
+		struct target_x86_64 x86_64;
+		struct target_interpret interpret;
+	};
 
 	bool verbose;
 };
@@ -115,51 +135,22 @@ struct program_state program_state_init(enum target_type type) {
 
 	switch (type) {
 		case TARGET_X86_64: {
-			res.target.x86_64 = (struct target_x86_64) {
+			res.x86_64 = (struct target_x86_64) {
 				.prelude = {0},
 				.data = {0},
 				.code = {0},
 			};
-			nob_sb_append_cstr(&res.target.x86_64.prelude,
+			nob_sb_append_cstr(&res.x86_64.prelude,
 				"global _start\n"
 				"SYS_WRITE equ 1\n"
 				"SYS_EXIT  equ 60\n"
 				"STDOUT    equ 1\n"
 			);
-			nob_sb_append_cstr(&res.target.x86_64.data,
+			nob_sb_append_cstr(&res.x86_64.data,
 				"SECTION .data\n"
 			);
-			nob_sb_append_cstr(&res.target.x86_64.code,
+			nob_sb_append_cstr(&res.x86_64.code,
 				"SECTION .text\n"
-				"druk_lyn:\n"
-				"  push rbp\n"
-				"  mov rbp, rsp\n"
-
-				"  ; syscall(SYS_WRITE, STDOUT, arg0, arg1)\n"
-				"  mov rdx, "X86_64_INT_ARG1" ; arg1 --> arg3\n"
-				"  mov rsi, "X86_64_INT_ARG0" ; arg0 --> arg2\n"
-				"  mov rax, SYS_WRITE\n"
-				"  mov rdi, STDOUT\n"
-				"  syscall\n"
-				"  ; if write failed (rax < 0), return"
-				"  text rax, rax\n"
-				"  js .exit\n"
-
-				"  mov rbx, rax ; save rax into rbx\n"
-				"  ; syscall(SYS_WRITE, STDOUT, \"\\n\", 1)\n"
-				"  mov rsi, .nl\n"
-				"  mov rdx, 1\n"
-				"  mov rax, SYS_WRITE\n"
-				"  syscall\n"
-				"  ; if write failed (rax < 0), return"
-				"  text rax, rax\n"
-				"  js .exit\n"
-				"  add rax, rbx ; update total bytes written\n"
-
-				".exit:\n"
-				"  pop rbp\n"
-				"  ret\n"
-				".nl: db 10\n"
 			);
 		} break;
 		case TARGET_INTERPRET: {
@@ -167,6 +158,22 @@ struct program_state program_state_init(enum target_type type) {
 	}
 
 	return res;
+}
+void program_state_destroy(struct program_state *state) {
+	for (size_t i = 0; i < state->count; ++i) {
+		nob_da_free(state->items[i]);
+		free(state->items[i].naam);
+	}
+	nob_da_free(*state);
+
+	switch (state->type) {
+		case TARGET_X86_64: {
+			target_x86_64_destroy(state->x86_64);
+		} break;
+		case TARGET_INTERPRET: {
+			target_interpret_destroy(state->interpret);
+		} break;
+	}
 }
 #define VERB(str) if (state->verbose) nob_log(NOB_INFO, str)
 #define VERBF(fmt, ...) if (state->verbose) nob_log(NOB_INFO, fmt, __VA_ARGS__)
@@ -176,7 +183,7 @@ void visit_eof(struct program_state *state) {
 	VERB("Visiting EOF");
 	switch (state->type) {
 		case TARGET_X86_64: {
-			Nob_String_Builder *sb = &state->target.x86_64.code;
+			Nob_String_Builder *sb = &state->x86_64.code;
 
 			nob_sb_append_cstr(sb,
 				"_start:\n"
@@ -188,18 +195,19 @@ void visit_eof(struct program_state *state) {
 			);
 		} break;
 		case TARGET_INTERPRET: {
-			for (size_t i = 0; i < state->target.interpret.count; ++i) {
-				VERBF("Checking function %s for main...", state->target.interpret.items[i].naam);
-				if (strcmp(state->target.interpret.items[i].naam, "hoof") == 0) {
-					eval_expr(state, state->target.interpret.items[i].lyf);
+			for (size_t i = 0; i < state->interpret.count; ++i) {
+				VERBF("Checking function %s for main...", state->interpret.items[i].naam);
+				if (strcmp(state->interpret.items[i].naam, "hoof") == 0) {
+					eval_expr(state, state->interpret.items[i].lyf);
 					printf("Program result (should be niks): ");
-					print_value(state->target.interpret.last_val);
+					print_value(state->interpret.last_val);
 					putchar('\n');
-					value_destroy(state->target.interpret.last_val);
-					break;
+					value_destroy(state->interpret.last_val);
+					goto found_main;
 				}
-				nob_log(NOB_ERROR, "No main function provided!");
 			}
+			nob_log(NOB_ERROR, "No main function provided!");
+		found_main:;
 		} break;
 	}
 }
@@ -208,11 +216,11 @@ void visit_funcall(struct program_state *state, struct funcall funcall) {
 	switch (state->type) {
 		case TARGET_X86_64: {
 			// only support up to six integer arguments for now
-			Nob_String_Builder *sb = &state->target.x86_64.code;
+			Nob_String_Builder *sb = &state->x86_64.code;
 			int args_pushed = 0;
 			for (size_t i = 0; i < funcall.count; ++i) {
 				eval_expr(state, funcall.items[i]);
-				switch (state->target.x86_64.items[--state->target.x86_64.count]) {
+				switch (state->x86_64.items[--state->x86_64.count]) {
 					case TP_NIKS: {
 						nob_sb_appendf(sb,
 							"  pop %s\n"
@@ -233,21 +241,39 @@ void visit_funcall(struct program_state *state, struct funcall funcall) {
 				"  call %s\n"
 				"  push rax\n"
 			, funcall.naam);
-			nob_da_append(&state->target.x86_64, TP_NIKS);
+			nob_da_append(&state->x86_64, TP_NIKS);
 		} break;
 		case TARGET_INTERPRET: {
-			if (strcmp(funcall.naam, "druk_lyn") == 0) {
-				for (size_t i = 0; i < funcall.count; ++i) {
-					eval_expr(state, funcall.items[i]);
-					print_value(state->target.interpret.last_val);
-					value_destroy(state->target.interpret.last_val);
+			const struct ifunksie *funk = NULL;
+			for (size_t i = 0; i < state->interpret.count; ++i) {
+				funk = &state->interpret.items[i];
+				if (strcmp(funcall.naam, funk->naam) == 0) {
+					goto called_funk;
 				}
-				putchar('\n');
+			}
+			nob_log(NOB_ERROR, "Undefined function %s", funcall.naam);
+			exit(1);
+		called_funk:;
+			struct {
+				struct oseaan_value *items;
+				size_t count;
+				size_t capacity;
+			} args = {0};
+			for (size_t i = 0; i < funcall.count; ++i) {
+				eval_expr(state, funcall.items[i]);
+				nob_da_append(&args, state->interpret.last_val);
+			}
+			if (funk->is_builtin) {
+				state->interpret.last_val = funk->builtin(args.items);
+				for (size_t i = 0; i < args.count; ++i) {
+					value_destroy(args.items[i]);
+				}
+				nob_da_free(args);
 			} else {
 				printf("TODO: parse funksie call\n");
 				printf("Naam: %s\n", funcall.naam);
+				state->interpret.last_val = (struct oseaan_value) {0};
 			}
-			state->target.interpret.last_val = (struct oseaan_value) {0};
 		} break;
 	}
 }
@@ -255,18 +281,18 @@ void visit_compound(struct program_state *state, struct compound compound) {
 	VERB("Visiting compound");
 	switch (state->type) {
 		case TARGET_X86_64: {
-			Nob_String_Builder *sb = &state->target.x86_64.code;
+			Nob_String_Builder *sb = &state->x86_64.code;
 			for (size_t i = 0; i < compound.count; ++i) {
 				if (i) {
 					nob_sb_append_cstr(sb, "  pop rax\n");
-					--state->target.x86_64.count;
+					--state->x86_64.count;
 				}
 				eval_expr(state, compound.items[i]);
 			}
 			if (compound.last_empty) {
 				nob_sb_append_cstr(sb, "  pop rax\n  push 0\n");
-				--state->target.x86_64.count;
-				nob_da_append(&state->target.x86_64, TP_NIKS);
+				--state->x86_64.count;
+				nob_da_append(&state->x86_64, TP_NIKS);
 			}
 		} break;
 		case TARGET_INTERPRET: {
@@ -275,17 +301,17 @@ void visit_compound(struct program_state *state, struct compound compound) {
 				eval_expr(state, compound.items[i]);
 				if (state->verbose) {
 					printf("In compound expression, got expression value: ");
-					print_value(state->target.interpret.last_val);
+					print_value(state->interpret.last_val);
 					putchar('\n');
 				}
 				if (!compound.last_empty) {
 					value_destroy(res);
-					res = state->target.interpret.last_val;
+					res = state->interpret.last_val;
 				} else {
-					value_destroy(state->target.interpret.last_val);
+					value_destroy(state->interpret.last_val);
 				}
 			}
-			state->target.interpret.last_val = res;
+			state->interpret.last_val = res;
 		} break;
 	}
 }
@@ -294,24 +320,24 @@ void visit_str_lit(struct program_state *state, char *str_lit) {
 	switch (state->type) {
 		case TARGET_X86_64: {
 			static size_t strlit_counter = 0;
-			Nob_String_Builder *sb = &state->target.x86_64.data;
+			Nob_String_Builder *sb = &state->x86_64.data;
 			nob_sb_appendf(sb,
 				"strlit_%zu db \"%s\"\n"
 				"strlit_%zu_len equ $-strlit_%zu\n"
 			, strlit_counter, str_lit, strlit_counter, strlit_counter);
 
-			sb = &state->target.x86_64.code;
+			sb = &state->x86_64.code;
 			nob_sb_appendf(sb,
 				"  push strlit_%zu\n"
 				"  push strlit_%zu_len\n"
 			, strlit_counter, strlit_counter);
-			nob_da_append(&state->target.x86_64, TP_STR);
+			nob_da_append(&state->x86_64, TP_STR);
 
 			++strlit_counter;
 		} break;
 		case TARGET_INTERPRET: {
-			state->target.interpret.last_val.type = TP_STR;
-			state->target.interpret.last_val.value.s_value = strdup(str_lit);
+			state->interpret.last_val.type = TP_STR;
+			state->interpret.last_val.value.s_value = strdup(str_lit);
 		} break;
 	}
 }
@@ -319,7 +345,7 @@ void visit_funksie_definisie(struct program_state *state, struct funksie funksie
 	VERB("Visiting funksie definisie");
 	switch (state->type) {
 		case TARGET_X86_64: {
-			Nob_String_Builder *sb = &state->target.x86_64.code;
+			Nob_String_Builder *sb = &state->x86_64.code;
 			nob_sb_appendf(sb,
 				"%s:\n"
 				"  push rbp\n"
@@ -333,7 +359,12 @@ void visit_funksie_definisie(struct program_state *state, struct funksie funksie
 			);
 		} break;
 		case TARGET_INTERPRET: {
-			nob_da_append(&state->target.interpret, funksie_copy(funksie));
+			struct ifunksie funk = {
+				.naam = strdup(funksie.naam),
+				.is_builtin = false,
+				.lyf = expr_copy(funksie.lyf),
+			};
+			nob_da_append(&state->interpret, funk);
 		} break;
 	}
 }
@@ -351,10 +382,76 @@ void eval_expr(struct program_state *state, struct expr expr) {
 		} break;
 	}
 }
+struct oseaan_value builtin_druk_lyn(struct oseaan_value *args) {
+	if (args[0].type != TP_STR) {
+		nob_log(NOB_ERROR, "Expected string for argument!");
+	}
+	printf("%s\n", args[0].value.s_value);
+	return (struct oseaan_value) {0};
+}
 void eval_insluiting(struct program_state *state, struct insluiting insluiting) {
-	(void) state;
-	(void) insluiting;
-	printf("TODO: parse insluiting\n");
+	if (strcmp(insluiting.module, "stdiu") == 0) {
+		struct function_signature builtin_druk_lyn_sig = {
+			.items = NULL,
+			.count = 0,
+			.capacity = 0,
+			.naam = strdup("druk lyn"),
+			.return_type = TP_NIKS,
+		};
+		nob_da_append(&builtin_druk_lyn_sig, TP_STR);
+		nob_da_append(state, builtin_druk_lyn_sig);
+	}
+	switch (state->type) {
+		case TARGET_X86_64: {
+			if (strcmp(insluiting.module, "stdiu") == 0) {
+				nob_sb_append_cstr(&state->x86_64.code,
+					"druk_lyn: ; van module stdiu\n"
+					"  push rbp\n"
+					"  mov rbp, rsp\n"
+
+					"  ; syscall(SYS_WRITE, STDOUT, arg0, arg1)\n"
+					"  mov rdx, "X86_64_INT_ARG1" ; arg1 --> arg3\n"
+					"  mov rsi, "X86_64_INT_ARG0" ; arg0 --> arg2\n"
+					"  mov rax, SYS_WRITE\n"
+					"  mov rdi, STDOUT\n"
+					"  syscall\n"
+					"  ; if write failed (rax < 0), return"
+					"  text rax, rax\n"
+					"  js .exit\n"
+
+					"  mov rbx, rax ; save rax into rbx\n"
+					"  ; syscall(SYS_WRITE, STDOUT, \"\\n\", 1)\n"
+					"  mov rsi, .nl\n"
+					"  mov rdx, 1\n"
+					"  mov rax, SYS_WRITE\n"
+					"  syscall\n"
+					"  ; if write failed (rax < 0), return"
+					"  text rax, rax\n"
+					"  js .exit\n"
+					"  add rax, rbx ; update total bytes written\n"
+
+					".exit:\n"
+					"  pop rbp\n"
+					"  ret\n"
+					".nl: db 10\n"
+				);
+			} else {
+				printf("TODO: parse insluiting\n");
+			}
+		} break;
+		case TARGET_INTERPRET: {
+			if (strcmp(insluiting.module, "stdiu") == 0) {
+				struct ifunksie funk = {
+					.naam = strdup("druk_lyn"),
+					.is_builtin = true,
+					.builtin = builtin_druk_lyn,
+				};
+				nob_da_append(&state->interpret, funk);
+			} else {
+				printf("TODO: parse insluiting\n");
+			}
+		} break;
+	}
 }
 void eval(struct program_state *state, struct ast *ast) {
 	switch (ast->type) {
@@ -392,13 +489,12 @@ int main(int argc, char **argv) {
 		.source_len = sb.count,
 		.idx = 0,
 
-		.verbose = true,
+		.verbose = false,
 
 		.tok = {0},
 		.has_tok = false,
 	};
-	struct program_state pstate = program_state_init(TARGET_X86_64);
-	pstate.verbose = true;
+	struct program_state pstate = program_state_init(TARGET_INTERPRET);
 
 	while (state.idx < state.source_len) {
 		struct ast *ast = parse_ast(&state);
@@ -410,9 +506,38 @@ int main(int argc, char **argv) {
 		free(ast);
 	}
 
-	printf("%s", pstate.target.x86_64.prelude.items);
-	printf("%s", pstate.target.x86_64.data.items);
-	printf("%s", pstate.target.x86_64.code.items);
+	program_state_destroy(&pstate);
+
+	state = (struct parse_state) {
+		.source = sb.items,
+		.source_len = sb.count,
+		.idx = 0,
+
+		.verbose = false,
+
+		.tok = {0},
+		.has_tok = false,
+	};
+	pstate = program_state_init(TARGET_X86_64);
+
+	while (state.idx < state.source_len) {
+		struct ast *ast = parse_ast(&state);
+		printf("AST: ");
+		print_ast(ast);
+		putchar('\n');
+		eval(&pstate, ast);
+		ast_destroy(ast);
+		free(ast);
+	}
+
+	printf("%s", pstate.x86_64.prelude.items);
+	printf("%s", pstate.x86_64.data.items);
+	printf("%s", pstate.x86_64.code.items);
+
+	program_state_destroy(&pstate);
+
+	nob_sb_free(sb);
+
 	/*
 	while (idx < sb.count) {
 		struct token tok = lex_token(sb.items, sb.count, &idx);
