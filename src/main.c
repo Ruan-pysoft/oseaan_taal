@@ -105,7 +105,7 @@ void target_interpret_destroy(struct target_interpret target) {
 	for (size_t i = 0; i < target.count; ++i) {
 		free(target.items[i].naam);
 		if (!target.items[i].is_builtin) {
-			expr_destroy(target.items[i].lyf);
+			expr_destroy(&target.items[i].lyf);
 		}
 	}
 	nob_da_free(target);
@@ -193,6 +193,10 @@ void visit_eof(struct program_state *state) {
 				"  xor rdi, rdi\n"
 				"  syscall\n"
 			);
+
+			nob_sb_append_null(&state->x86_64.prelude);
+			nob_sb_append_null(&state->x86_64.code);
+			nob_sb_append_null(&state->x86_64.data);
 		} break;
 		case TARGET_INTERPRET: {
 			for (size_t i = 0; i < state->interpret.count; ++i) {
@@ -362,7 +366,7 @@ void visit_funksie_definisie(struct program_state *state, struct funksie funksie
 			struct ifunksie funk = {
 				.naam = strdup(funksie.naam),
 				.is_builtin = false,
-				.lyf = expr_copy(funksie.lyf),
+				.lyf = expr_copy(&funksie.lyf),
 			};
 			nob_da_append(&state->interpret, funk);
 		} break;
@@ -484,51 +488,30 @@ int main(int argc, char **argv) {
 
 	if (!nob_read_entire_file("examples/hallo_wereld.os", &sb)) exit(1);
 
-	struct parse_state state = {
-		.source = sb.items,
-		.source_len = sb.count,
-		.idx = 0,
-
-		.verbose = false,
-
-		.tok = {0},
-		.has_tok = false,
-	};
+	nob_sb_append_null(&sb);
+	struct parse_state state = parse_state_init(sb.items);
 	struct program_state pstate = program_state_init(TARGET_INTERPRET);
 
-	while (state.idx < state.source_len) {
-		struct ast *ast = parse_ast(&state);
+	while (!st_atend(&state.src)) {
+		struct ast ast = parse_ast(&state);
 		printf("AST: ");
-		print_ast(ast);
+		print_ast(&ast);
 		putchar('\n');
-		eval(&pstate, ast);
-		ast_destroy(ast);
-		free(ast);
+		eval(&pstate, &ast);
+		ast_destroy(&ast);
 	}
 
 	program_state_destroy(&pstate);
 
-	state = (struct parse_state) {
-		.source = sb.items,
-		.source_len = sb.count,
-		.idx = 0,
-
-		.verbose = false,
-
-		.tok = {0},
-		.has_tok = false,
-	};
+	state = parse_state_init(sb.items);
 	pstate = program_state_init(TARGET_X86_64);
 
-	while (state.idx < state.source_len) {
-		struct ast *ast = parse_ast(&state);
-		printf("AST: ");
-		print_ast(ast);
-		putchar('\n');
+	struct program prog = parse_program(&state);
+	print_program(&prog);
+	nob_da_foreach(struct ast, ast, &prog) {
 		eval(&pstate, ast);
-		ast_destroy(ast);
-		free(ast);
 	}
+	program_destroy(&prog);
 
 	printf("%s", pstate.x86_64.prelude.items);
 	printf("%s", pstate.x86_64.data.items);

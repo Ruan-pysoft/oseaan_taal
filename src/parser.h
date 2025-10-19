@@ -17,14 +17,43 @@
 enum token_type {
 	TOK_EOF = -1,
 
-	#define X(tt, ...) tt,
+#define X(tt, ...) tt,
 	S_VAL_TOKENS
 
 	CHAR_TOKENS
 
 	KW_TOKENS
-	#undef X
+#undef X
 };
+
+struct source_tracking {
+	const char *source;
+	size_t size;
+	size_t idx;
+};
+struct source_tracking st_init(const char *source);
+bool st_atend(const struct source_tracking *this);
+char st_at(const struct source_tracking *this);
+bool st_isat(const struct source_tracking *this, char c);
+bool st_advat(struct source_tracking *this, char c);
+bool st_checkcur(const struct source_tracking *this, bool (*check)(char));
+void st_skipwhile(struct source_tracking *this, bool (*cond)(char));
+bool st_canpeek(const struct source_tracking *this);
+char st_peek(const struct source_tracking *this);
+char st_adv(struct source_tracking *this);
+
+#define DESTROY_METH(typename) void typename ## _destroy(struct typename *this)
+#define COPY_METH(typename) struct typename typename ## _copy(const struct typename *this)
+#define SB_APPEND_FUNC(typename) void sb_append_ ## typename(Nob_String_Builder *sb, const struct typename *this)
+#define FPRINT_FUNC(typename) void fprint_ ## typename(const struct typename *this, FILE *file)
+#define PRINT_FUNC(typename) void print_ ## typename(const struct typename *this)
+
+#define DECL_STD_METHS(typename) \
+DESTROY_METH(typename); \
+COPY_METH(typename); \
+SB_APPEND_FUNC(typename); \
+FPRINT_FUNC(typename); \
+PRINT_FUNC(typename)
 
 union token_value {
 	char *s_val;
@@ -34,10 +63,7 @@ struct token {
 	enum token_type type;
 	union token_value value;
 };
-void token_destroy(struct token tok);
-struct token token_copy(struct token tok);
-void print_token(struct token tok);
-void sb_append_token(Nob_String_Builder *sb, struct token tok);
+DECL_STD_METHS(token);
 
 enum ast_type {
 	AST_EOF = -1,
@@ -76,27 +102,18 @@ struct expr {
 	enum expr_type type;
 	union expr_value value;
 };
-void expr_destroy(struct expr expr);
-struct expr expr_copy(struct expr expr);
-void print_expr(struct expr expr);
-void sb_append_expr(Nob_String_Builder *sb, struct expr expr);
+DECL_STD_METHS(expr);
 
 struct insluiting {
 	char *module;
 };
-void insluiting_destroy(struct insluiting insluiting);
-struct insluiting insluiting_copy(struct insluiting insluiting);
-void print_insluiting(struct insluiting insluiting);
-void sb_append_insluiting(Nob_String_Builder *sb, struct insluiting insluiting);
+DECL_STD_METHS(insluiting);
 
 struct funksie {
 	char *naam;
 	struct expr lyf;
 };
-void funksie_destroy(struct funksie funksie);
-struct funksie funksie_copy(struct funksie funksie);
-void print_funksie(struct funksie funksie);
-void sb_append_funksie(Nob_String_Builder *sb, struct funksie funksie);
+DECL_STD_METHS(funksie);
 
 union ast_value {
 	struct expr expr;
@@ -108,15 +125,10 @@ struct ast {
 	enum ast_type type;
 	union ast_value value;
 };
-void ast_destroy(struct ast *ast);
-struct ast *ast_copy(struct ast *ast);
-void print_ast(struct ast *ast);
-void sb_append_ast(Nob_String_Builder *sb, struct ast *ast);
+DECL_STD_METHS(ast);
 
 struct parse_state {
-	const char *source;
-	size_t source_len;
-	size_t idx;
+	struct source_tracking src;
 
 	bool verbose;
 
@@ -125,6 +137,15 @@ struct parse_state {
 	struct token tok;
 	bool has_tok;
 };
-struct ast *parse_ast(struct parse_state *state);
+struct parse_state parse_state_init(const char *source);
+struct ast parse_ast(struct parse_state *state);
+
+struct program {
+	struct ast *items;
+	size_t count;
+	size_t capacity;
+};
+DECL_STD_METHS(program);
+struct program parse_program(struct parse_state *state);
 
 #endif /* PARSER_H */

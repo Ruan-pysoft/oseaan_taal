@@ -15,6 +15,8 @@ const char *flags[] = {
 	"-pedantic",
 	"-I./nob.h",
 	"-g",
+	"-fsanitize=address",
+	"-p",
 };
 Cmd cmd_flags = {
 	.items = flags,

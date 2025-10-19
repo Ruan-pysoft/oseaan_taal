@@ -1,50 +1,107 @@
 #include "parser.h"
 
-void token_destroy(struct token tok) {
-	switch (tok.type) {
-		#define X(tt) case tt: { if (tok.value.s_val) free(tok.value.s_val); } break;
+struct source_tracking st_init(const char *source) {
+	return (struct source_tracking) {
+		.source = source,
+		.size = strlen(source),
+		.idx = 0,
+	};
+}
+#define src_atend() st_atend(src)
+bool st_atend(const struct source_tracking *this) {
+	return this->idx >= this->size;
+}
+#define src_at() st_at(src)
+char st_at(const struct source_tracking *this) {
+	return this->source[this->idx];
+}
+#define src_isat(c) st_isat(src, c)
+bool st_isat(const struct source_tracking *this, char c) {
+	return !st_atend(this) && st_at(this) == c;
+}
+#define src_advat(c) st_advat(src, c)
+bool st_advat(struct source_tracking *this, char c) {
+	if (st_isat(this, c)) {
+		st_adv(this);
+		return true;
+	} else return false;
+}
+#define src_checkcur(check) st_checkcur(src, check)
+bool st_checkcur(const struct source_tracking *this, bool (*check)(char)) {
+	return !st_atend(this) && check(st_at(this));
+}
+#define src_skipwhile(cond) st_skipwhile(src, cond)
+#define src_skipwhile_expr(cond_expr) do { \
+		while (cond_expr) src_adv(); \
+	} while (0)
+void st_skipwhile(struct source_tracking *this, bool (*cond)(char)) {
+	while (st_checkcur(this, cond)) st_adv(this);
+}
+#define src_canpeek() st_canpeek(src)
+bool st_canpeek(const struct source_tracking *this) {
+	return this->idx+1 < this->size;
+}
+#define src_peek() st_peek(src)
+char st_peek(const struct source_tracking *this) {
+	return this->source[this->idx+1];
+}
+#define src_adv() st_adv(src)
+char st_adv(struct source_tracking *this) {
+	return this->source[this->idx++];
+}
+
+#define PRINT_IMPL(typename) \
+FPRINT_FUNC(typename) { \
+	Nob_String_Builder sb = {0}; \
+	sb_append_ ## typename(&sb, this); \
+	fprintf(file, "%.*s", (int)sb.count, sb.items); \
+	nob_sb_free(sb); \
+} \
+PRINT_FUNC(typename) { fprint_ ## typename(this, stdout); }
+
+DESTROY_METH(token) {
+	switch (this->type) {
+#define X(tt) case tt: { if (this->value.s_val) free(this->value.s_val); } break;
 		S_VAL_TOKENS
-		#undef X
+#undef X
 		default: break;
 	}
 }
-struct token token_copy(struct token tok) {
+COPY_METH(token) {
 	struct token res = {
-		.type = tok.type,
+		.type = this->type,
 		.value = {0},
 	};
-	switch (tok.type) {
-		#define X(tt) case tt: { if (tok.value.s_val) res.value.s_val = strdup(tok.value.s_val); } break;
+
+	switch (this->type) {
+#define X(tt) case tt: { if (this->value.s_val) res.value.s_val = strdup(this->value.s_val); } break;
 		S_VAL_TOKENS
-		#undef X
+#undef X
 		default: break;
 	}
+
 	return res;
 }
-void print_token(struct token tok) {
-	Nob_String_Builder sb = {0};
-	sb_append_token(&sb, tok);
-	printf("%s", sb.items);
-	nob_sb_free(sb);
-}
-void sb_append_token(Nob_String_Builder *sb, struct token tok) {
-	switch (tok.type) {
+SB_APPEND_FUNC(token) {
+	switch (this->type) {
 		case TOK_EOF: {
 			nob_sb_appendf(sb, "TOK_EOF");
 		} break;
 
-		#define X(tt) case tt: { nob_sb_appendf(sb, #tt "(%s)", tok.value.s_val); } break;
+#define X(tt) case tt: { nob_sb_appendf(sb, #tt "(%s)", this->value.s_val); } break;
 		S_VAL_TOKENS
-		#undef X
+#undef X
 
-		#define X(tt, _) case tt: { nob_sb_append_cstr(sb, #tt); } break;
+#define X(tt, _) case tt: { nob_sb_append_cstr(sb, #tt); } break;
 		CHAR_TOKENS
 
 		KW_TOKENS
-		#undef X
+#undef X
 	}
 }
+PRINT_IMPL(token)
 
+struct token lex_token(struct source_tracking *src);
 
 bool is_space(char c) {
 	return c <= ' ' || c >= 127;
@@ -58,229 +115,201 @@ bool is_digit(char c) {
 bool is_alnum(char c) {
 	return is_alpha(c) || is_digit(c) || c == '_';
 }
-void skip_space(const char *source, size_t source_len, size_t *idx) {
-	while (*idx < source_len && is_space(source[*idx])) ++*idx;
-}
 
-struct token lex_token(const char *source, size_t source_len, size_t *idx) {
+struct token lex_token(struct source_tracking *src) {
 	struct token res = { EOF, {0} };
 
-	skip_space(source, source_len, idx);
+	src_skipwhile(is_space);
 
-	if (*idx >= source_len) return res;
+	if (src_atend()) return res;
 
-	#define X(tt, ch) if (source[*idx] == ch) { ++*idx; res.type = tt; } else
+#define X(tt, ch) if (src_advat(ch)) { res.type = tt; } else
 	CHAR_TOKENS
-	#undef X
-	if (is_alpha(source[*idx]) || source[*idx] == '_') {
-		const size_t begin = *idx;
-		++*idx;
+#undef X
+	if (src_checkcur(is_alpha) || src_isat('_')) {
+		const size_t begin = src->idx;
+		src_adv();
 
-		while (*idx < source_len && is_alnum(source[*idx])) {
-			++*idx;
-		}
+		src_skipwhile(is_alnum);
 
-		#define X(tt, st) if (strncmp(&source[begin], st, strlen(st)) == 0) { res.type = tt; } else
+#define X(tt, st) if (strncmp(&src->source[begin], st, strlen(st)) == 0) { res.type = tt; } else
 		KW_TOKENS
-		#undef X
+#undef X
 		{
 			res.type = IDENTIFIER;
-			res.value.s_val = strndup(&source[begin], *idx - begin);
+			res.value.s_val = strndup(&src->source[begin], src->idx - begin);
 		}
-	} else if (source[*idx] == '"') {
-		const size_t begin = *idx;
-		++*idx;
+	} else if (src_isat('"')) {
+		const size_t begin = src->idx;
+		src_adv();
 
-		while (*idx < source_len && source[*idx] != '"') {
-			++*idx;
-		}
+		src_skipwhile_expr(!src_atend() && src_at() != '"');
 
-		if (*idx < source_len && source[*idx] == '"') {
-			++*idx;
-		} else {
+		if (src_isat('"')) src_adv();
+		else {
 			nob_log(NOB_ERROR, "Unterminated string literal");
 			exit(1);
 		}
 
 		res.type = STRING_LIT;
-		res.value.s_val = strndup(&source[begin+1], *idx - begin - 2);
+		res.value.s_val = strndup(&src->source[begin+1], src->idx - begin - 2);
 	} else {
-		nob_log(NOB_ERROR, "Unexpected character %c in source", source[*idx]);
+		nob_log(NOB_ERROR, "Unexpected character %c in source", src_at());
 		exit(1);
 	}
 
 	return res;
 }
 
-void expr_destroy(struct expr expr) {
-	switch (expr.type) {
+DESTROY_METH(expr) {
+	switch (this->type) {
 		case EXPR_FUNCALL: {
-			for (size_t i = 0; i < expr.value.funcall.count; ++i) {
-				expr_destroy(expr.value.funcall.items[i]);
+			for (size_t i = 0; i < this->value.funcall.count; ++i) {
+				expr_destroy(&this->value.funcall.items[i]);
 			}
-			nob_da_free(expr.value.funcall);
-			free(expr.value.funcall.naam);
+			nob_da_free(this->value.funcall);
+			free(this->value.funcall.naam);
 		} break;
 		case EXPR_COMPOUND: {
-			for (size_t i = 0; i < expr.value.compound.count; ++i) {
-				expr_destroy(expr.value.compound.items[i]);
+			for (size_t i = 0; i < this->value.compound.count; ++i) {
+				expr_destroy(&this->value.compound.items[i]);
 			}
-			nob_da_free(expr.value.compound);
+			nob_da_free(this->value.compound);
 		} break;
 		case EXPR_STR_LIT: {
-			free(expr.value.str_lit);
+			free(this->value.str_lit);
 		}
 	}
 }
-struct expr expr_copy(struct expr expr) {
+COPY_METH(expr) {
 	struct expr res = {
-		.type = expr.type,
+		.type = this->type,
 		.value = {{0}},
 	};
-	switch (expr.type) {
+	switch (this->type) {
 		case EXPR_FUNCALL: {
-			for (size_t i = 0; i < expr.value.funcall.count; ++i) {
-				nob_da_append(&res.value.funcall, expr_copy(expr.value.funcall.items[i]));
+			for (size_t i = 0; i < this->value.funcall.count; ++i) {
+				nob_da_append(&res.value.funcall, expr_copy(&this->value.funcall.items[i]));
 			}
-			res.value.funcall.naam = strdup(expr.value.funcall.naam);
+			res.value.funcall.naam = strdup(this->value.funcall.naam);
 		} break;
 		case EXPR_COMPOUND: {
-			for (size_t i = 0; i < expr.value.compound.count; ++i) {
-				nob_da_append(&res.value.compound, expr_copy(expr.value.compound.items[i]));
+			for (size_t i = 0; i < this->value.compound.count; ++i) {
+				nob_da_append(&res.value.compound, expr_copy(&this->value.compound.items[i]));
 			}
 		} break;
 		case EXPR_STR_LIT: {
-			res.value.str_lit = strdup(expr.value.str_lit);
+			res.value.str_lit = strdup(this->value.str_lit);
 		}
 	}
 	return res;
 }
-void print_expr(struct expr expr) {
-	Nob_String_Builder sb = {0};
-	sb_append_expr(&sb, expr);
-	printf("%s", sb.items);
-	nob_sb_free(sb);
-}
-void sb_append_expr(Nob_String_Builder *sb, struct expr expr) {
-	switch (expr.type) {
+SB_APPEND_FUNC(expr) {
+	switch (this->type) {
 		case EXPR_FUNCALL: {
-			nob_sb_appendf(sb, "FUNCALL(%s: ", expr.value.funcall.naam);
-			for (size_t i = 0; i < expr.value.funcall.count; ++i) {
+			nob_sb_appendf(sb, "FUNCALL(%s: ", this->value.funcall.naam);
+			for (size_t i = 0; i < this->value.funcall.count; ++i) {
 				if (i) nob_sb_appendf(sb, ", ");
-				sb_append_expr(sb, expr.value.funcall.items[i]);
+				sb_append_expr(sb, &this->value.funcall.items[i]);
 			}
 			nob_sb_appendf(sb, ")");
 		} break;
 		case EXPR_COMPOUND: {
 			nob_sb_appendf(sb, "COMPOUND(");
-			for (size_t i = 0; i < expr.value.funcall.count; ++i) {
+			for (size_t i = 0; i < this->value.funcall.count; ++i) {
 				if (i) nob_sb_appendf(sb, ", ");
-				sb_append_expr(sb, expr.value.funcall.items[i]);
+				sb_append_expr(sb, &this->value.funcall.items[i]);
 			}
 			nob_sb_appendf(sb, ")");
 		} break;
 		case EXPR_STR_LIT: {
-			nob_sb_appendf(sb, "\"%s\"", expr.value.str_lit);
+			nob_sb_appendf(sb, "\"%s\"", this->value.str_lit);
 		} break;
 	}
 }
+PRINT_IMPL(expr)
 
-void insluiting_destroy(struct insluiting insluiting) {
-	free(insluiting.module);
+DESTROY_METH(insluiting) {
+	free(this->module);
 }
-struct insluiting insluiting_copy(struct insluiting insluiting) {
+COPY_METH(insluiting) {
 	struct insluiting res = {0};
-	res.module = strdup(insluiting.module);
+	res.module = strdup(this->module);
 	return res;
 }
-void print_insluiting(struct insluiting insluiting) {
-	Nob_String_Builder sb = {0};
-	sb_append_insluiting(&sb, insluiting);
-	printf("%s", sb.items);
-	nob_sb_free(sb);
+SB_APPEND_FUNC(insluiting) {
+	nob_sb_appendf(sb, "INSLUITING(%s)", this->module);
 }
-void sb_append_insluiting(Nob_String_Builder *sb, struct insluiting insluiting) {
-	nob_sb_appendf(sb, "INSLUITING(%s)", insluiting.module);
-}
+PRINT_IMPL(insluiting)
 
-void funksie_destroy(struct funksie funksie) {
-	free(funksie.naam);
-	expr_destroy(funksie.lyf);
+DESTROY_METH(funksie) {
+	free(this->naam);
+	expr_destroy(&this->lyf);
 }
-struct funksie funksie_copy(struct funksie funksie) {
+COPY_METH(funksie) {
 	struct funksie res = {0};
-	res.naam = strdup(funksie.naam);
-	res.lyf = expr_copy(funksie.lyf);
+	res.naam = strdup(this->naam);
+	res.lyf = expr_copy(&this->lyf);
 	return res;
 }
-void print_funksie(struct funksie funksie) {
-	Nob_String_Builder sb = {0};
-	sb_append_funksie(&sb, funksie);
-	printf("%s", sb.items);
-	nob_sb_free(sb);
-}
-void sb_append_funksie(Nob_String_Builder *sb, struct funksie funksie) {
-	nob_sb_appendf(sb, "FUNKSIE(%s, ", funksie.naam);
-	sb_append_expr(sb, funksie.lyf);
+SB_APPEND_FUNC(funksie) {
+	nob_sb_appendf(sb, "FUNKSIE(%s, ", this->naam);
+	sb_append_expr(sb, &this->lyf);
 	nob_sb_appendf(sb, ")");
 }
+PRINT_IMPL(funksie)
 
-void ast_destroy(struct ast *ast) {
-	switch (ast->type) {
+DESTROY_METH(ast) {
+	switch (this->type) {
 		case EXPR: {
-			expr_destroy(ast->value.expr);
+			expr_destroy(&this->value.expr);
 		} break;
 		case INSLUITING: {
-			insluiting_destroy(ast->value.insluiting);
+			insluiting_destroy(&this->value.insluiting);
 		} break;
 		case FUNKSIE_DEFINISIE: {
-			funksie_destroy(ast->value.funksie_definisie);
+			funksie_destroy(&this->value.funksie_definisie);
 		} break;
 		case AST_EOF: break;
 	}
 }
-struct ast *ast_copy(struct ast *ast) {
-	struct ast *res = calloc(1, sizeof(*res));
-	switch (ast->type) {
+COPY_METH(ast) {
+	struct ast res = {0};
+	switch (this->type) {
 		case EXPR: {
-			res->value.expr = expr_copy(ast->value.expr);
+			res.value.expr = expr_copy(&this->value.expr);
 		} break;
 		case INSLUITING: {
-			res->value.insluiting = insluiting_copy(ast->value.insluiting);
+			res.value.insluiting = insluiting_copy(&this->value.insluiting);
 		} break;
 		case FUNKSIE_DEFINISIE: {
-			res->value.funksie_definisie = funksie_copy(ast->value.funksie_definisie);
+			res.value.funksie_definisie = funksie_copy(&this->value.funksie_definisie);
 		} break;
 		case AST_EOF: break;
 	}
 	return res;
 }
-void print_ast(struct ast *ast) {
-	Nob_String_Builder sb = {0};
-	sb_append_ast(&sb, ast);
-	printf("%s", sb.items);
-	nob_sb_free(sb);
-}
-void sb_append_ast(Nob_String_Builder *sb, struct ast *ast) {
-	switch (ast->type) {
+SB_APPEND_FUNC(ast) {
+	switch (this->type) {
 		case EXPR: {
-			sb_append_expr(sb, ast->value.expr);
+			sb_append_expr(sb, &this->value.expr);
 		} break;
 		case INSLUITING: {
-			sb_append_insluiting(sb, ast->value.insluiting);
+			sb_append_insluiting(sb, &this->value.insluiting);
 		} break;
 		case FUNKSIE_DEFINISIE: {
-			sb_append_funksie(sb, ast->value.funksie_definisie);
+			sb_append_funksie(sb, &this->value.funksie_definisie);
 		} break;
 		case AST_EOF: {
 			nob_sb_appendf(sb, "AST_EOF");
 		} break;
 	}
 }
+PRINT_IMPL(ast)
 
 struct token *parse_peek(struct parse_state *state) {
 	if (!state->has_tok) {
-		state->tok = lex_token(state->source, state->source_len, &state->idx);
+		state->tok = lex_token(&state->src);
 		state->has_tok = true;
 	}
 	return &state->tok;
@@ -289,7 +318,7 @@ struct token *parse_advance(struct parse_state *state) {
 	parse_peek(state);
 
 	if (state->has_prev) {
-		token_destroy(state->prev);
+		token_destroy(&state->prev);
 	}
 
 	state->prev = state->tok;
@@ -299,9 +328,21 @@ struct token *parse_advance(struct parse_state *state) {
 	return &state->prev;
 }
 
+struct parse_state parse_state_init(const char *source) {
+	return (struct parse_state) {
+		.src = st_init(source),
+
+		.verbose = false,
+
+		.prev = {0},
+		.has_prev = false,
+		.tok = {0},
+		.has_tok = false,
+	};
+}
 #define ERR_UNEXPECTED_TOKEN(expected_t_msg) do { \
 		nob_sb_append_cstr(&err, "Unexpected token in source "); \
-		sb_append_token(&err, *tok); \
+		sb_append_token(&err, tok); \
 		nob_sb_append_cstr(&err, ", expected token of type " expected_t_msg); \
 		nob_log(NOB_ERROR, "%s,%d: %s", __FILE__, __LINE__, err.items); \
 		exit(1); \
@@ -320,7 +361,7 @@ struct token *parse_advance(struct parse_state *state) {
 	} while (0)
 struct expr parse_expr(struct parse_state *state);
 struct expr parse_compound_expr(struct parse_state *state) {
-	struct expr res;
+	struct expr res = {0};
 
 	PARSE_ENTER("Compound Expr");
 
@@ -361,7 +402,7 @@ struct expr parse_compound_expr(struct parse_state *state) {
 	}
 }
 struct expr parse_funk_call(struct parse_state *state) {
-	struct expr res;
+	struct expr res = {0};
 
 	PARSE_ENTER("Funk Call");
 
@@ -406,7 +447,7 @@ struct expr parse_funk_call(struct parse_state *state) {
 	}
 }
 struct expr parse_expr(struct parse_state *state) {
-	struct expr res;
+	struct expr res = {0};
 
 	PARSE_ENTER("Expr");
 
@@ -427,8 +468,8 @@ struct expr parse_expr(struct parse_state *state) {
 
 	PARSE_LEAVE("Expr");
 }
-struct ast *parse_atexpr(struct parse_state *state) {
-	struct ast *res;
+struct ast parse_atexpr(struct parse_state *state) {
+	struct ast res = {0};
 
 	PARSE_ENTER("@");
 
@@ -443,8 +484,7 @@ struct ast *parse_atexpr(struct parse_state *state) {
 	}
 
 	if (strcmp(tok->value.s_val, "sluit_in") == 0) {
-		res = malloc(sizeof(*res));
-		*res = (struct ast) { INSLUITING, {{0}} };
+		res.type = INSLUITING;
 
 		tok = parse_advance(state);
 
@@ -452,7 +492,7 @@ struct ast *parse_atexpr(struct parse_state *state) {
 			ERR_UNEXPECTED_TOKEN("IDENTIFIER");
 		}
 
-		res->value.insluiting.module = tok->value.s_val;
+		res.value.insluiting.module = tok->value.s_val;
 		tok->value.s_val = NULL;
 	} else {
 		ERR_UNEXPECTED_TOKEN("IDENTIFIER");
@@ -461,7 +501,7 @@ struct ast *parse_atexpr(struct parse_state *state) {
 	PARSE_LEAVE("@");
 }
 struct funksie parse_funk(struct parse_state *state) {
-	struct funksie res;
+	struct funksie res = {0};
 
 	PARSE_ENTER("Funk");
 
@@ -496,8 +536,8 @@ struct funksie parse_funk(struct parse_state *state) {
 
 	PARSE_LEAVE("Funk");
 }
-struct ast *parse_ast(struct parse_state *state) {
-	struct ast *res;
+struct ast parse_ast(struct parse_state *state) {
+	struct ast res = {0};
 
 	PARSE_ENTER("AST");
 
@@ -506,18 +546,44 @@ struct ast *parse_ast(struct parse_state *state) {
 	if (tok->type == SYM_AT) {
 		res = parse_atexpr(state);
 	} else if (tok->type == KW_FUNK) {
-		res = malloc(sizeof(*res));
-		*res = (struct ast) {
-			FUNKSIE_DEFINISIE,
-			{ .funksie_definisie
-			 = parse_funk(state) }
-		};
+		res.type = FUNKSIE_DEFINISIE;
+		res.value.funksie_definisie = parse_funk(state);
 	} else if (tok->type == TOK_EOF) {
-		res = malloc(sizeof(*res));
-		*res = (struct ast) { AST_EOF, {{0}} };
+		res.type = AST_EOF;
 	} else {
 		ERR_UNEXPECTED_TOKEN("SYM_AT or KW_FUNK or TOK_EOF");
 	}
 
 	PARSE_LEAVE("AST");
+}
+
+DESTROY_METH(program) {
+	nob_da_foreach(struct ast, ast, this) {
+		ast_destroy(ast);
+	}
+	nob_da_free(*this);
+}
+COPY_METH(program) {
+	struct program res = {0};
+	nob_da_reserve(&res, this->count);
+	nob_da_foreach(struct ast, ast, this) {
+		nob_da_append(&res, ast_copy(ast));
+	}
+	return res;
+}
+SB_APPEND_FUNC(program) {
+	nob_da_foreach(struct ast, ast, this) {
+		sb_append_ast(sb, ast);
+		nob_sb_append_cstr(sb, "\n");
+	}
+}
+PRINT_IMPL(program)
+struct program parse_program(struct parse_state *state) {
+	struct program res = {0};
+
+	while (!st_atend(&state->src)) {
+		nob_da_append(&res, parse_ast(state));
+	}
+
+	return res;
 }
