@@ -3,6 +3,8 @@
 
 #include "nob.h"
 
+#include "utils.h"
+
 #define S_VAL_TOKENS X(IDENTIFIER) X(STRING_LIT)
 #define CHAR_TOKENS \
 	X(SYM_AT, '@') \
@@ -42,19 +44,6 @@ bool st_canpeek(const struct source_tracking *this);
 char st_peek(const struct source_tracking *this);
 char st_adv(struct source_tracking *this);
 
-#define DESTROY_METH(typename) void typename ## _destroy(struct typename *this)
-#define COPY_METH(typename) struct typename typename ## _copy(const struct typename *this)
-#define SB_APPEND_FUNC(typename) void sb_append_ ## typename(Nob_String_Builder *sb, const struct typename *this)
-#define FPRINT_FUNC(typename) void fprint_ ## typename(const struct typename *this, FILE *file)
-#define PRINT_FUNC(typename) void print_ ## typename(const struct typename *this)
-
-#define DECL_STD_METHS(typename) \
-DESTROY_METH(typename); \
-COPY_METH(typename); \
-SB_APPEND_FUNC(typename); \
-FPRINT_FUNC(typename); \
-PRINT_FUNC(typename)
-
 union token_value {
 	char *s_val;
 };
@@ -79,10 +68,13 @@ enum expr_type {
 	EXPR_STR_LIT,
 };
 
-struct funcall {
+struct funk_args {
 	struct expr *items;
 	size_t count;
 	size_t capacity;
+};
+struct funcall {
+	struct funk_args args;
 	char *naam;
 };
 struct compound {

@@ -1,6 +1,8 @@
 #include "parser.h"
 
 struct source_tracking st_init(const char *source) {
+	assert(source != NULL);
+
 	return (struct source_tracking) {
 		.source = source,
 		.size = strlen(source),
@@ -9,25 +11,35 @@ struct source_tracking st_init(const char *source) {
 }
 #define src_atend() st_atend(src)
 bool st_atend(const struct source_tracking *this) {
+	assert(this != NULL);
+
 	return this->idx >= this->size;
 }
 #define src_at() st_at(src)
 char st_at(const struct source_tracking *this) {
+	assert(this != NULL && !st_atend(this));
+
 	return this->source[this->idx];
 }
 #define src_isat(c) st_isat(src, c)
 bool st_isat(const struct source_tracking *this, char c) {
+	assert(this != NULL);
+
 	return !st_atend(this) && st_at(this) == c;
 }
 #define src_advat(c) st_advat(src, c)
 bool st_advat(struct source_tracking *this, char c) {
-	if (st_isat(this, c)) {
+	assert(this != NULL);
+
+	if (!st_atend(this) && st_isat(this, c)) {
 		st_adv(this);
 		return true;
 	} else return false;
 }
 #define src_checkcur(check) st_checkcur(src, check)
 bool st_checkcur(const struct source_tracking *this, bool (*check)(char)) {
+	assert(this != NULL);
+
 	return !st_atend(this) && check(st_at(this));
 }
 #define src_skipwhile(cond) st_skipwhile(src, cond)
@@ -35,18 +47,26 @@ bool st_checkcur(const struct source_tracking *this, bool (*check)(char)) {
 		while (cond_expr) src_adv(); \
 	} while (0)
 void st_skipwhile(struct source_tracking *this, bool (*cond)(char)) {
+	assert(this != NULL);
+
 	while (st_checkcur(this, cond)) st_adv(this);
 }
 #define src_canpeek() st_canpeek(src)
 bool st_canpeek(const struct source_tracking *this) {
+	assert(this != NULL);
+
 	return this->idx+1 < this->size;
 }
 #define src_peek() st_peek(src)
 char st_peek(const struct source_tracking *this) {
+	assert(st_canpeek(this) && this != NULL);
+
 	return this->source[this->idx+1];
 }
 #define src_adv() st_adv(src)
 char st_adv(struct source_tracking *this) {
+	assert(!st_atend(this) && this != NULL);
+
 	return this->source[this->idx++];
 }
 
@@ -60,6 +80,8 @@ FPRINT_FUNC(typename) { \
 PRINT_FUNC(typename) { fprint_ ## typename(this, stdout); }
 
 DESTROY_METH(token) {
+	assert(this != NULL);
+
 	switch (this->type) {
 #define X(tt) case tt: { if (this->value.s_val) free(this->value.s_val); } break;
 		S_VAL_TOKENS
@@ -68,6 +90,8 @@ DESTROY_METH(token) {
 	}
 }
 COPY_METH(token) {
+	assert(this != NULL);
+
 	struct token res = {
 		.type = this->type,
 		.value = {0},
@@ -83,6 +107,8 @@ COPY_METH(token) {
 	return res;
 }
 SB_APPEND_FUNC(token) {
+	assert(sb != NULL && this != NULL);
+
 	switch (this->type) {
 		case TOK_EOF: {
 			nob_sb_appendf(sb, "TOK_EOF");
@@ -117,6 +143,8 @@ bool is_alnum(char c) {
 }
 
 struct token lex_token(struct source_tracking *src) {
+	assert(src != NULL && src->source != NULL);
+
 	struct token res = { EOF, {0} };
 
 	src_skipwhile(is_space);
@@ -162,6 +190,8 @@ struct token lex_token(struct source_tracking *src) {
 }
 
 DESTROY_METH(expr) {
+	assert(this != NULL);
+
 	switch (this->type) {
 		case EXPR_FUNCALL: {
 			for (size_t i = 0; i < this->value.funcall.count; ++i) {
@@ -182,6 +212,8 @@ DESTROY_METH(expr) {
 	}
 }
 COPY_METH(expr) {
+	assert(this != NULL);
+
 	struct expr res = {
 		.type = this->type,
 		.value = {{0}},
@@ -205,6 +237,8 @@ COPY_METH(expr) {
 	return res;
 }
 SB_APPEND_FUNC(expr) {
+	assert(sb != NULL && this != NULL);
+
 	switch (this->type) {
 		case EXPR_FUNCALL: {
 			nob_sb_appendf(sb, "FUNCALL(%s: ", this->value.funcall.naam);
@@ -230,29 +264,41 @@ SB_APPEND_FUNC(expr) {
 PRINT_IMPL(expr)
 
 DESTROY_METH(insluiting) {
+	assert(this != NULL);
+
 	free(this->module);
 }
 COPY_METH(insluiting) {
+	assert(this != NULL);
+
 	struct insluiting res = {0};
 	res.module = strdup(this->module);
 	return res;
 }
 SB_APPEND_FUNC(insluiting) {
+	assert(sb != NULL && this != NULL);
+
 	nob_sb_appendf(sb, "INSLUITING(%s)", this->module);
 }
 PRINT_IMPL(insluiting)
 
 DESTROY_METH(funksie) {
+	assert(this != NULL);
+
 	free(this->naam);
 	expr_destroy(&this->lyf);
 }
 COPY_METH(funksie) {
+	assert(this != NULL);
+
 	struct funksie res = {0};
 	res.naam = strdup(this->naam);
 	res.lyf = expr_copy(&this->lyf);
 	return res;
 }
 SB_APPEND_FUNC(funksie) {
+	assert(sb != NULL && this != NULL);
+
 	nob_sb_appendf(sb, "FUNKSIE(%s, ", this->naam);
 	sb_append_expr(sb, &this->lyf);
 	nob_sb_appendf(sb, ")");
@@ -260,6 +306,8 @@ SB_APPEND_FUNC(funksie) {
 PRINT_IMPL(funksie)
 
 DESTROY_METH(ast) {
+	assert(this != NULL);
+
 	switch (this->type) {
 		case EXPR: {
 			expr_destroy(&this->value.expr);
@@ -274,6 +322,8 @@ DESTROY_METH(ast) {
 	}
 }
 COPY_METH(ast) {
+	assert(this != NULL);
+
 	struct ast res = {0};
 	switch (this->type) {
 		case EXPR: {
@@ -290,6 +340,8 @@ COPY_METH(ast) {
 	return res;
 }
 SB_APPEND_FUNC(ast) {
+	assert(sb != NULL && this != NULL);
+
 	switch (this->type) {
 		case EXPR: {
 			sb_append_expr(sb, &this->value.expr);
@@ -308,6 +360,8 @@ SB_APPEND_FUNC(ast) {
 PRINT_IMPL(ast)
 
 struct token *parse_peek(struct parse_state *state) {
+	assert(state != NULL);
+
 	if (!state->has_tok) {
 		state->tok = lex_token(&state->src);
 		state->has_tok = true;
@@ -315,6 +369,8 @@ struct token *parse_peek(struct parse_state *state) {
 	return &state->tok;
 }
 struct token *parse_advance(struct parse_state *state) {
+	assert(state != NULL);
+
 	parse_peek(state);
 
 	if (state->has_prev) {
@@ -329,6 +385,8 @@ struct token *parse_advance(struct parse_state *state) {
 }
 
 struct parse_state parse_state_init(const char *source) {
+	assert(source != NULL);
+
 	return (struct parse_state) {
 		.src = st_init(source),
 
@@ -361,6 +419,8 @@ struct parse_state parse_state_init(const char *source) {
 	} while (0)
 struct expr parse_expr(struct parse_state *state);
 struct expr parse_compound_expr(struct parse_state *state) {
+	assert(state != NULL);
+
 	struct expr res = {0};
 
 	PARSE_ENTER("Compound Expr");
@@ -402,6 +462,8 @@ struct expr parse_compound_expr(struct parse_state *state) {
 	}
 }
 struct expr parse_funk_call(struct parse_state *state) {
+	assert(state != NULL);
+
 	struct expr res = {0};
 
 	PARSE_ENTER("Funk Call");
@@ -447,6 +509,8 @@ struct expr parse_funk_call(struct parse_state *state) {
 	}
 }
 struct expr parse_expr(struct parse_state *state) {
+	assert(state != NULL);
+
 	struct expr res = {0};
 
 	PARSE_ENTER("Expr");
@@ -469,6 +533,8 @@ struct expr parse_expr(struct parse_state *state) {
 	PARSE_LEAVE("Expr");
 }
 struct ast parse_atexpr(struct parse_state *state) {
+	assert(state != NULL);
+
 	struct ast res = {0};
 
 	PARSE_ENTER("@");
@@ -501,6 +567,8 @@ struct ast parse_atexpr(struct parse_state *state) {
 	PARSE_LEAVE("@");
 }
 struct funksie parse_funk(struct parse_state *state) {
+	assert(state != NULL);
+
 	struct funksie res = {0};
 
 	PARSE_ENTER("Funk");
@@ -537,6 +605,8 @@ struct funksie parse_funk(struct parse_state *state) {
 	PARSE_LEAVE("Funk");
 }
 struct ast parse_ast(struct parse_state *state) {
+	assert(state != NULL);
+
 	struct ast res = {0};
 
 	PARSE_ENTER("AST");
@@ -558,12 +628,16 @@ struct ast parse_ast(struct parse_state *state) {
 }
 
 DESTROY_METH(program) {
+	assert(this != NULL);
+
 	nob_da_foreach(struct ast, ast, this) {
 		ast_destroy(ast);
 	}
 	nob_da_free(*this);
 }
 COPY_METH(program) {
+	assert(this != NULL);
+
 	struct program res = {0};
 	nob_da_reserve(&res, this->count);
 	nob_da_foreach(struct ast, ast, this) {
@@ -572,6 +646,8 @@ COPY_METH(program) {
 	return res;
 }
 SB_APPEND_FUNC(program) {
+	assert(sb != NULL && this != NULL);
+
 	nob_da_foreach(struct ast, ast, this) {
 		sb_append_ast(sb, ast);
 		nob_sb_append_cstr(sb, "\n");
@@ -579,6 +655,8 @@ SB_APPEND_FUNC(program) {
 }
 PRINT_IMPL(program)
 struct program parse_program(struct parse_state *state) {
+	assert(state != NULL);
+
 	struct program res = {0};
 
 	while (!st_atend(&state->src)) {
