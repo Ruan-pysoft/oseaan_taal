@@ -222,8 +222,8 @@ void visit_funcall(struct program_state *state, struct funcall funcall) {
 			// only support up to six integer arguments for now
 			Nob_String_Builder *sb = &state->x86_64.code;
 			int args_pushed = 0;
-			for (size_t i = 0; i < funcall.count; ++i) {
-				eval_expr(state, funcall.items[i]);
+			for (size_t i = 0; i < funcall.args.count; ++i) {
+				eval_expr(state, funcall.args.items[i]);
 				switch (state->x86_64.items[--state->x86_64.count]) {
 					case TP_NIKS: {
 						nob_sb_appendf(sb,
@@ -263,8 +263,8 @@ void visit_funcall(struct program_state *state, struct funcall funcall) {
 				size_t count;
 				size_t capacity;
 			} args = {0};
-			for (size_t i = 0; i < funcall.count; ++i) {
-				eval_expr(state, funcall.items[i]);
+			for (size_t i = 0; i < funcall.args.count; ++i) {
+				eval_expr(state, funcall.args.items[i]);
 				nob_da_append(&args, state->interpret.last_val);
 			}
 			if (funk->is_builtin) {

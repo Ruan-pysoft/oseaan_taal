@@ -70,15 +70,6 @@ char st_adv(struct source_tracking *this) {
 	return this->source[this->idx++];
 }
 
-#define PRINT_IMPL(typename) \
-FPRINT_FUNC(typename) { \
-	Nob_String_Builder sb = {0}; \
-	sb_append_ ## typename(&sb, this); \
-	fprintf(file, "%.*s", (int)sb.count, sb.items); \
-	nob_sb_free(sb); \
-} \
-PRINT_FUNC(typename) { fprint_ ## typename(this, stdout); }
-
 DESTROY_METH(token) {
 	assert(this != NULL);
 
@@ -194,10 +185,10 @@ DESTROY_METH(expr) {
 
 	switch (this->type) {
 		case EXPR_FUNCALL: {
-			for (size_t i = 0; i < this->value.funcall.count; ++i) {
-				expr_destroy(&this->value.funcall.items[i]);
+			for (size_t i = 0; i < this->value.funcall.args.count; ++i) {
+				expr_destroy(&this->value.funcall.args.items[i]);
 			}
-			nob_da_free(this->value.funcall);
+			nob_da_free(this->value.funcall.args);
 			free(this->value.funcall.naam);
 		} break;
 		case EXPR_COMPOUND: {
@@ -216,12 +207,12 @@ COPY_METH(expr) {
 
 	struct expr res = {
 		.type = this->type,
-		.value = {{0}},
+		.value = {{{0}}},
 	};
 	switch (this->type) {
 		case EXPR_FUNCALL: {
-			for (size_t i = 0; i < this->value.funcall.count; ++i) {
-				nob_da_append(&res.value.funcall, expr_copy(&this->value.funcall.items[i]));
+			for (size_t i = 0; i < this->value.funcall.args.count; ++i) {
+				nob_da_append(&res.value.funcall.args, expr_copy(&this->value.funcall.args.items[i]));
 			}
 			res.value.funcall.naam = strdup(this->value.funcall.naam);
 		} break;
@@ -242,17 +233,17 @@ SB_APPEND_FUNC(expr) {
 	switch (this->type) {
 		case EXPR_FUNCALL: {
 			nob_sb_appendf(sb, "FUNCALL(%s: ", this->value.funcall.naam);
-			for (size_t i = 0; i < this->value.funcall.count; ++i) {
+			for (size_t i = 0; i < this->value.funcall.args.count; ++i) {
 				if (i) nob_sb_appendf(sb, ", ");
-				sb_append_expr(sb, &this->value.funcall.items[i]);
+				sb_append_expr(sb, &this->value.funcall.args.items[i]);
 			}
 			nob_sb_appendf(sb, ")");
 		} break;
 		case EXPR_COMPOUND: {
 			nob_sb_appendf(sb, "COMPOUND(");
-			for (size_t i = 0; i < this->value.funcall.count; ++i) {
+			for (size_t i = 0; i < this->value.funcall.args.count; ++i) {
 				if (i) nob_sb_appendf(sb, ", ");
-				sb_append_expr(sb, &this->value.funcall.items[i]);
+				sb_append_expr(sb, &this->value.funcall.args.items[i]);
 			}
 			nob_sb_appendf(sb, ")");
 		} break;
@@ -475,9 +466,11 @@ struct expr parse_funk_call(struct parse_state *state) {
 
 	res.type = EXPR_FUNCALL;
 	res.value.funcall = (struct funcall) {
-		.items = NULL,
-		.capacity = 0,
-		.count = 0,
+		.args = {
+			.items = NULL,
+			.capacity = 0,
+			.count = 0,
+		},
 		.naam = tok->value.s_val,
 	};
 	tok->value.s_val = NULL;
@@ -494,7 +487,7 @@ struct expr parse_funk_call(struct parse_state *state) {
 
 	for (;;) {
 		struct expr expr = parse_expr(state);
-		nob_da_append(&res.value.funcall, expr);
+		nob_da_append(&res.value.funcall.args, expr);
 
 		tok = parse_peek(state);
 		/*if (tok->type == SYM_COMMA) {
