@@ -1,3 +1,4 @@
+#if 0
 #include "lexer.h"
 
 #define NOB_IMPLEMENTATION
@@ -38,28 +39,26 @@ int main(int argc, char **argv) {
 	tokenise_file("examples/wisselvorme.os");
 
 }
-
-#if 0
+#else
+#include "lexer.h"
 #include "parser.h"
-#include "types.h"
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
 void print_program_ast(const char *filename) {
-	Nob_String_Builder sb = {0};
+	printf("\n=== %s ===\n", filename);
 
-	if (!nob_read_entire_file(filename, &sb)) exit(1);
+	Nob_String_Builder source = {0};
+	if (!nob_read_entire_file(filename, &source)) exit(1);
+	nob_sb_append_null(&source);
 
-	nob_sb_append_null(&sb);
-	struct parse_state state = parse_state_init(sb.items);
-	struct ast ast = parse_ast(&state);
+	struct program prog = parse_file(st_init(filename, source.items));
 
-	printf("Displaying ast for file %s:\n", filename);
-	print_ast(&ast);
+	print_program(&prog);
 
-	ast_destroy(&ast);
-	nob_sb_free(sb);
+	program_destroy(&prog);
+	nob_sb_free(source);
 }
 
 int main(int argc, char **argv) {

@@ -6,8 +6,8 @@ const char *executable = "os";
 
 const char *files[] = {
 	"main",
-	//"parser",
-	//"types",
+	"parser",
+	"types",
 	"lexer",
 };
 

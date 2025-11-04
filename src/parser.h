@@ -1,101 +1,142 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "nob.h"
-
+#include "lexer.h"
 #include "types.h"
 #include "utils.h"
 
-enum ast_type {
-	AST_EOF = -1,
+struct expr;
 
-	EXPR,
-	INSLUITING,
-	FUNKSIE_DEFINISIE,
-	VERANDERLIKE_DEKLARASIE,
-	VERANDERLIKE_DEFINISIE,
+struct tipeerde_naam {
+	struct token naam;
+	struct tipe tipe;
 };
+DECL_STD_METHS(tipeerde_naam);
 
-enum expr_type {
-	EXPR_FUNCALL,
-	EXPR_COMPOUND,
-	EXPR_STR_LIT,
+enum statement_type {
+	ST_INSLUITING,
+	ST_DEKLARASIE,
+	ST_DEFINISIE,
+	ST_FUNKSIE,
 };
-
-struct e_funk_args {
-	struct expr *items;
-	size_t count;
-	size_t capacity;
+struct st_insluiting {
+	struct token module;
 };
-struct e_funcall {
-	struct e_funk_args args;
-	char *naam;
+DECL_STD_METHS(st_insluiting);
+struct st_deklarasie {
+	struct tipeerde_naam veranderlike;
 };
-struct e_compound {
-	struct e_expr *items;
-	size_t count;
-	size_t capacity;
-	bool last_empty;
+DECL_STD_METHS(st_deklarasie);
+struct st_definisie {
+	struct tipeerde_naam veranderlike;
+	struct expr *wat;
 };
-
-union expr_value {
-	struct e_funcall funcall;
-	struct e_compound compound;
-	char *str_lit;
+DECL_STD_METHS(st_definisie);
+struct st_funksie {
+	struct token naam;
+	struct {
+		struct tipeerde_naam *items;
+		size_t count;
+		size_t capacity;
+	} argumente;
+	bool benoemde_terugkeerwaarde;
+	union {
+		struct tipeerde_naam benoem;
+		struct tipe onbenoem;
+	};
+	struct expr *lyf;
 };
-
-struct expr {
-	enum expr_type type;
-	union expr_value value;
+DECL_STD_METHS(st_funksie);
+struct statement {
+	enum statement_type type;
+	union {
+		struct st_insluiting insluiting;
+		struct st_deklarasie deklarasie;
+		struct st_definisie definisie;
+		struct st_funksie funksie;
+	};
 };
-DECL_STD_METHS(expr);
-
-struct insluiting {
-	char *module;
-};
-DECL_STD_METHS(insluiting);
-
-struct funksie {
-	char *naam;
-	struct expr lyf;
-};
-DECL_STD_METHS(funksie);
-
-struct vreanderlike_deklarasie {
-	char *naam;
-};
-
-union ast_value {
-	struct expr expr;
-	struct insluiting insluiting;
-	struct funksie funksie_definisie;
-};
-
-struct ast {
-	enum ast_type type;
-	union ast_value value;
-};
-DECL_STD_METHS(ast);
-
-struct parse_state {
-	struct source_tracking src;
-
-	bool verbose;
-
-	struct token prev;
-	bool has_prev;
-	struct token tok;
-	bool has_tok;
-};
-struct parse_state parse_state_init(const char *source);
-struct ast parse_ast(struct parse_state *state);
 
 struct program {
-	struct ast *items;
+	struct statement *items;
 	size_t count;
 	size_t capacity;
 };
 DECL_STD_METHS(program);
-struct program parse_program(struct parse_state *state);
+
+struct program parse_file(struct source_tracking source);
+bool parser_had_error(void);
+
+enum expr_type {
+	ET_BLOK,
+	ET_FUNK,
+	ET_ROEP,
+	ET_STEL_VERANDERLIKE,
+	ET_TWEEVOUD_OPERASIE,
+	ET_EENVOUD_OPERASIE,
+	ET_KONSTANTE,
+};
+struct et_blok {
+	struct expr *items;
+	size_t count;
+	size_t capacity;
+};
+DECL_STD_METHS(et_blok);
+struct et_funk {
+	struct {
+		struct tipeerde_naam *items;
+		size_t count;
+		size_t capacity;
+	} argumente;
+	bool benoemde_terugkeerwaarde;
+	union {
+		struct tipeerde_naam benoem;
+		struct tipe onbenoem;
+	};
+	struct expr *lyf;
+};
+DECL_STD_METHS(et_funk);
+struct et_roep {
+	struct token funksie;
+	struct {
+		struct expr *items;
+		size_t count;
+		size_t capacity;
+	} argumente;
+};
+DECL_STD_METHS(et_roep);
+struct et_stel_veranderlike {
+	struct token veranderlike;
+	struct expr *na;
+};
+DECL_STD_METHS(et_stel_veranderlike);
+struct et_tweevoud_operasie {
+	struct token operasie;
+	struct expr *links;
+	struct expr *regs;
+};
+DECL_STD_METHS(et_tweevoud_operasie);
+struct et_eenvoud_operasie {
+	struct token operasie;
+	struct expr *invoer;
+};
+DECL_STD_METHS(et_eenvoud_operasie);
+struct et_konstante {
+	struct token konstante;
+};
+DECL_STD_METHS(et_konstante);
+struct expr {
+	enum expr_type type;
+	union {
+		struct et_blok blok;
+		struct et_funk funk;
+		struct et_roep roep;
+		struct et_stel_veranderlike stel_veranderlike;
+		struct et_tweevoud_operasie tweevoud_operasie;
+		struct et_eenvoud_operasie eenvoud_operasie;
+		struct et_konstante konstante;
+	};
+};
+DECL_STD_METHS(expr);
 
 #endif /* PARSER_H */
