@@ -68,6 +68,7 @@ struct program parse_file(struct source_tracking source);
 bool parser_had_error(void);
 
 enum expr_type {
+	ET_VERANDERLIKE,
 	ET_BLOK,
 	ET_FUNK,
 	ET_ROEP,
@@ -128,6 +129,7 @@ DECL_STD_METHS(et_konstante);
 struct expr {
 	enum expr_type type;
 	union {
+		struct token veranderlike;
 		struct et_blok blok;
 		struct et_funk funk;
 		struct et_roep roep;

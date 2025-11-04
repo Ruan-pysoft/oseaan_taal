@@ -457,6 +457,7 @@ DESTROY_METH(expr) {
 	assert(this != NULL);
 
 	switch (this->type) {
+		case ET_VERANDERLIKE: token_destroy(&this->veranderlike); break;
 		case ET_BLOK: et_blok_destroy(&this->blok); break;
 		case ET_FUNK: et_funk_destroy(&this->funk); break;
 		case ET_ROEP: et_roep_destroy(&this->roep); break;
@@ -472,6 +473,7 @@ COPY_METH(expr) {
 	struct expr res = {0};
 	res.type = this->type;
 	switch (this->type) {
+		case ET_VERANDERLIKE: res.veranderlike = token_copy(&this->veranderlike); break;
 		case ET_BLOK: res.blok = et_blok_copy(&this->blok); break;
 		case ET_FUNK: res.funk = et_funk_copy(&this->funk); break;
 		case ET_ROEP: res.roep = et_roep_copy(&this->roep); break;
@@ -487,6 +489,9 @@ SB_APPEND_FUNC(expr) {
 
 	nob_sb_append_cstr(sb, "EXPR: ");
 	switch (this->type) {
+		case ET_VERANDERLIKE: {
+			nob_sb_appendf(sb, "VERANDERLIKE(%.*s)", (int)this->veranderlike.len, &this->veranderlike.pos.source[this->veranderlike.pos.idx]);
+		} break;
 		case ET_BLOK: sb_append_et_blok(sb, &this->blok); break;
 		case ET_FUNK: sb_append_et_funk(sb, &this->funk); break;
 		case ET_ROEP: sb_append_et_roep(sb, &this->roep); break;
@@ -643,9 +648,30 @@ bool parse_roep(struct et_roep *res) {
 	advance();
 	advance();
 
-	// TODO: proper parsing here
-	fputs("WARNING: skipping over function call argument because I can't be arsed to parse it right now\n", stderr);
-	advance(); // skip argument
+	bool first = true;
+	while (state.curr.type != SYM_RPAREN && state.curr.type != TOK_EOF) {
+		if (!first) {
+			if (state.curr.type != SYM_COMMA) {
+				parse_error(
+					"het 'n komma verwag",
+					"tussen twee funksie argumente moet daar 'n komme wees", NULL
+				);
+			} else advance();
+		}
+		first = false;
+
+		struct expr expr;
+		if (!parse_expr(&expr)) {
+			nob_da_foreach(struct expr, it, &res->argumente) {
+				expr_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			token_destroy(&res->funksie);
+			recover_error();
+			return false;
+		}
+		nob_da_append(&res->argumente, expr);
+	}
 
 	if (state.curr.type != SYM_RPAREN) {
 		token_destroy(&res->funksie);
@@ -696,8 +722,19 @@ bool parse_expr(struct expr *res) {
 				res->type = ET_ROEP;
 				return parse_roep(&res->roep);
 			} else {
-				assert(false && "TODO");
+				res->type = ET_VERANDERLIKE;
+				res->veranderlike = token_copy(&state.curr);
+				advance();
+				return true;
 			}
+		} break;
+		case STRING_LIT:
+		case NUMBER_LIT:
+		{
+			res->type = ET_KONSTANTE;
+			res->konstante.konstante = token_copy(&state.curr);
+			advance();
+			return true;
 		} break;
 		case SYM_LBRACE: {
 			res->type = ET_BLOK;

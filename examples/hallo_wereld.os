@@ -1,4 +1,4 @@
-@sluit_in stdiu
+@sluit_in stdiu;
 
 funk hoof() {
 	druk_lyn("Hallo, wêreld!");
