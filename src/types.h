@@ -5,6 +5,21 @@
 
 #include "utils.h"
 
+enum veranderlikheid {
+	// constant/mutable in Engels
+	// as iets "erfbaar" is dan word dit konstant/veranderlik gebaseer op die "buitenste" tipe
+	// dit is moeilik om te verduidelik, ek sal later daaroor skryf in 'n teksdokument
+	v_konstant,
+	v_veranderlik,
+	v_erfbaar,
+};
+DECL_DISPLAY_METHS_ENUM(veranderlikheid);
+static const char *veranderlikheid_str[] = {
+	[v_konstant] = "kon",
+	[v_veranderlik] = "ver",
+	[v_erfbaar] = "erf",
+};
+
 enum klas_van_tipe {
 	kvt_basies,
 	kvt_verwysing,
@@ -13,6 +28,7 @@ enum klas_van_tipe {
 	kvt_funksie,
 };
 struct tipe;
+struct konkrete_tipe;
 enum tp_basiese_tipe {
 	// die kern tipes van die taal, "primitive types" in Engels
 	bt_niks, // "niks" tipe vir as 'n funksie niks terugkeer nie
@@ -53,12 +69,12 @@ static const char *tp_basiese_tipe_str[] = {
 struct tp_verwysing {
 	// "pointer" in Engels (alhowel "reference" dalk 'n meer akkurate terugvertaling sal wees)
 	// word voorgestel in die geheue as dieselfde as bt_nat_masjien
-	struct tipe *na;
+	struct konkrete_tipe *na;
 };
 DECL_STD_METHS(tp_verwysing);
 struct tp_vaste_lys {
 	// 'n lys met 'n sekere, vaste lengte van 'n sekere tipe
-	struct tipe *van;
+	struct konkrete_tipe *van;
 	size_t lengte;
 };
 DECL_STD_METHS(tp_vaste_lys);
@@ -66,13 +82,15 @@ struct tp_dinamiese_lys {
 	// 'n lys met 'n dinamiese lengte,
 	// dws die lengte kan verander word terwyl die program hardloop,
 	// dus is die lengte nie bekend aan die compiler nie
-	struct tipe *van;
+	struct konkrete_tipe *van;
+	// nota: as die waardes in die lys konstant is, dan is die lengte ook konstant.
+	//       net so, as die waardes veranderlik is, dan is die lengte ook
 };
 DECL_STD_METHS(tp_dinamiese_lys);
 struct tp_argumente {
 	// die argumentelys van 'n funksie, die name van die argumente maak nie 'n verskil aan die tipe nie
 	// 'n "dynamic array", gemaak om met nob.h te werk
-	struct tipe *items;
+	struct konkrete_tipe *items;
 	size_t count;
 	size_t capacity;
 };
@@ -83,7 +101,11 @@ struct tp_funksie {
 	// as 'n eintlike waarde, dink ek 'n funksie is 'n lokasie in die rekenaar se geheue,
 	// maar ook nie heeltemal nie, meer 'n "label".
 	// Dus sal die groote van 'n funksie waarde "0" wees.
-	struct tipe *terugkeer;
+	struct konkrete_tipe *terugkeer;
+	// nota: die terugkeertipe *kan* erf of kon wees,
+	//       maar dit mag nie erf wees nie (net soos enige veranderlike nie erf mag wees nie)
+	//       en dit mag ook nie kon wees nie
+	//       (anders kan jy nie dit stel om 'n waarde terug te keer nie)
 	struct tp_argumente argumente;
 };
 DECL_STD_METHS(tp_funksie);
@@ -98,5 +120,11 @@ struct tipe {
 	};
 };
 DECL_STD_METHS(tipe);
+struct konkrete_tipe {
+	// 'n waarde: het nie net 'n tipe nie, maar ook 'n veranderlikheid daarby
+	struct tipe tipe;
+	enum veranderlikheid tipe_vlh;
+};
+DECL_STD_METHS(konkrete_tipe);
 
 #endif /* TYPES_H */
