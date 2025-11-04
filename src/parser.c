@@ -1,6 +1,7 @@
 #include "parser.h"
 
 #include <assert.h>
+#include <unistd.h>
 
 #include "nob.h"
 
@@ -249,7 +250,7 @@ COPY_METH(et_blok) {
 SB_APPEND_FUNC(et_blok) {
 	assert(sb != NULL && this != NULL);
 
-	nob_sb_append_cstr(sb, "BLOK {");
+	nob_sb_append_cstr(sb, "BLOK { ");
 	nob_da_foreach(struct expr, it, this) {
 		sb_append_expr(sb, it);
 		nob_sb_append_cstr(sb, "; ");
@@ -497,26 +498,274 @@ SB_APPEND_FUNC(expr) {
 }
 PRINT_IMPL(expr)
 
-static size_t n_errors;
-static struct source_tracking state;
-static struct token curr;
+static struct {
+	size_t n_errors;
+	struct source_tracking state;
+	struct token curr;
+	bool has_next;
+	struct token next;
+} state;
+
+static void advance(void) {
+	if (state.has_next) {
+		token_destroy(&state.curr);
+		state.curr = state.next;
+		state.has_next = false;
+	} else if (state.curr.type == TOK_EOF) {
+	} else {
+		token_destroy(&state.curr);
+		state.curr = lex_token(&state.state);
+	}
+}
+static struct token *peek(void) {
+	if (state.has_next) return &state.next;
+	if (state.curr.type == TOK_EOF) return &state.curr;
+	state.has_next = true;
+	state.next = lex_token(&state.state);
+	return &state.next;
+}
+
+void fprint_current(const char *prefix, FILE *file) {
+	fputs(prefix, file);
+	fprintf(file, "%s:%lu,%lu:\n", state.curr.pos.filename, state.curr.pos.line, state.curr.pos.idx - state.curr.pos.line_start + 1);
+	const char *line = &state.curr.pos.source[state.curr.pos.line_start];
+	size_t line_len;
+	for (line_len = 0; state.curr.pos.idx + line_len < state.curr.pos.size; ++line_len) {
+		if (line[line_len] == '\n') break;
+	}
+	fputs(prefix, file);
+	fputc(' ', file);
+	fprintf(file, "%.*s\n", (int)line_len, line);
+	fputs(prefix, file);
+	fputc(' ', file);
+	for (size_t i = 0; i < state.curr.pos.idx - state.curr.pos.line_start; ++i) {
+		fputc(' ', file);
+	}
+	for (size_t i = 0; i < state.curr.len; ++i) {
+		fputc('^', file);
+	}
+	fputc('\n', file);
+}
+#define parse_error(short, msg, ...) do { \
+		++state.n_errors; \
+		fprintf(stderr, "FOUT: %s\n", short); \
+		fprint_current("      ", stderr); \
+		fputs("      ", stderr); \
+		fprintf(stderr, msg, __VA_ARGS__); \
+		fputc('\n', stderr); \
+	} while (0)
+void recover_error(void) {
+	while (state.curr.type != TOK_EOF && state.curr.type != SYM_SEMICOLON) {
+		advance();
+	}
+	if (state.curr.type == SYM_SEMICOLON) {
+		advance();
+	}
+}
+
+bool parse_expr(struct expr *res);
+bool parse_insluiting(struct st_insluiting *res) {
+	assert(state.curr.type == SYM_AT);
+	advance();
+
+	if (state.curr.type != IDENTIFIER || state.curr.len != strlen("sluit_in") || strncmp(&state.curr.pos.source[state.curr.pos.idx], "sluit_in", state.curr.len)) {
+		parse_error(
+			"het \"sluit_in\" verwag",
+			"verwag die woord \"sluit_in\" ná 'n @ simbool", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	if (state.curr.type != IDENTIFIER) {
+		parse_error(
+			"het modulenaam verwag",
+			"verwag 'n naam van 'n module om in te sluit", NULL
+		);
+		recover_error();
+		return false;
+	}
+	res->module = token_copy(&state.curr);
+	advance();
+
+	return true;
+}
+bool parse_funksie_definisie(struct st_funksie *res) {
+	assert(state.curr.type == KW_FUNK);
+	advance();
+
+	if (state.curr.type != IDENTIFIER) {
+		parse_error(
+			"het funksie naam verwag",
+			"verwag in 'n funksie definisie dat die naam van die funksie na die \"funk\" sleutelwoord kom", NULL
+		);
+		recover_error();
+		return false;
+	}
+	res->naam = token_copy(&state.curr);
+	advance();
+
+	if (state.curr.type != SYM_LPAREN) {
+		token_destroy(&res->naam);
+
+		parse_error(
+			"het linker hakie verwag",
+			"verwag na 'n funksie se naam die funksie se argumente, wat met 'n linker hakie begin", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	if (state.curr.type != SYM_RPAREN) {
+		token_destroy(&res->naam);
+
+		parse_error(
+			"het regter hakie verwag",
+			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	res->lyf = calloc(1, sizeof(*res->lyf));
+	if (!parse_expr(res->lyf)) {
+		free(res->lyf);
+		token_destroy(&res->naam);
+		return false;
+	}
+
+	return true;
+}
+
+bool parse_roep(struct et_roep *res) {
+	assert(state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN);
+	res->funksie = token_copy(&state.curr);
+	advance();
+	advance();
+
+	// TODO: proper parsing here
+	fputs("WARNING: skipping over function call argument because I can't be arsed to parse it right now\n", stderr);
+	advance(); // skip argument
+
+	if (state.curr.type != SYM_RPAREN) {
+		token_destroy(&res->funksie);
+
+		parse_error(
+			"het regter hakie verwag",
+			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	return true;
+}
+bool parse_blok(struct et_blok *res) {
+	assert(state.curr.type == SYM_LBRACE);
+	advance();
+
+	while (state.curr.type != SYM_RBRACE && state.curr.type != TOK_EOF) {
+		struct expr expr;
+		if (!parse_expr(&expr)) continue;
+		nob_da_append(res, expr);
+		if (state.curr.type != SYM_SEMICOLON) {
+			parse_error(
+				"het 'n kommapunt verwag",
+				"ná elke uitdrukking in 'n blok moet daar 'n kommapunt wees", NULL
+			);
+			recover_error();
+		} else advance();
+	}
+
+	if (state.curr.type == TOK_EOF) {
+		parse_error(
+			"vroeë einde van lêer",
+			"einde van lêer bevind terwyl besig om blok te parse", NULL
+		);
+		return false;
+	} else advance();
+
+	return true;
+}
+
+bool parse_expr(struct expr *res) {
+	switch (state.curr.type) {
+		case IDENTIFIER: {
+			struct token *next = peek();
+			if (next->type == SYM_LPAREN) {
+				res->type = ET_ROEP;
+				return parse_roep(&res->roep);
+			} else {
+				assert(false && "TODO");
+			}
+		} break;
+		case SYM_LBRACE: {
+			res->type = ET_BLOK;
+			return parse_blok(&res->blok);
+		} break;
+		default: {
+			return false;
+		} break;
+	}
+	assert(false && "This should be unreachable");
+	return false;
+}
 
 struct program parse_file(struct source_tracking source) {
-	n_errors = 0;
-	state = source;
-	curr = lex_token(&state);
+	memset(&state, 0, sizeof(state));
+	state.state = source;
+	state.curr = lex_token(&state.state);
 
 	struct program res = {0};
 
-	while (curr.type != TOK_EOF) {
-		switch (curr.type) {
-			default: goto break_from_parseloop;
+	while (state.curr.type != TOK_EOF) {
+		struct statement stmt = {0};
+		switch (state.curr.type) {
+			case SYM_AT: {
+				stmt.type = ST_INSLUITING;
+				if (parse_insluiting(&stmt.insluiting)) {
+					nob_da_append(&res, stmt);
+				} else {
+					goto continue_while_loop;
+				}
+			} break;
+			case KW_LAAT: {
+				parse_error(
+					"nog nie geïmplimenteer nie",
+					"delkarasies en definisies is nog nie geïmplimenteer nie", NULL
+				);
+				recover_error();
+				goto continue_while_loop;
+			} break;
+			case KW_FUNK: {
+				stmt.type = ST_FUNKSIE;
+				if (parse_funksie_definisie(&stmt.funksie)) {
+					nob_da_append(&res, stmt);
+				} else {
+					goto continue_while_loop;
+				}
+			} break;
+			default: {
+				parse_error(
+					"het stelling verwag",
+					"verwag \"funk\", \"laat\", of \"@\", het \"%.*s\" gekry",
+					(int)state.curr.len, &state.curr.pos.source[state.curr.pos.idx]
+				);
+				recover_error();
+				goto continue_while_loop;
+			} break;
 		}
+		if (state.curr.type != SYM_SEMICOLON) {
+			parse_error(
+				"het 'n kommapunt verwag",
+				"ná elke insluiting, deklarasie, definisie, of funksiedefinisie moet daar 'n kommapunt wees", NULL
+			);
+		} else advance();
+continue_while_loop:;
 	}
-break_from_parseloop:;
 
 	return res;
 }
 bool parser_had_error(void) {
-	return n_errors != 0;
+	return state.n_errors != 0;
 }
