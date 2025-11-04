@@ -109,8 +109,8 @@ SB_APPEND_FUNC(tp_argumente) {
 	nob_da_foreach(struct konkrete_tipe, it, this) {
 		if (!first) {
 			nob_sb_append_cstr(sb, ", ");
-			first = false;
 		}
+		first = false;
 		nob_sb_append_cstr(sb, ": ");
 		sb_append_konkrete_tipe(sb, it);
 	}
@@ -139,7 +139,7 @@ SB_APPEND_FUNC(tp_funksie) {
 
 	nob_sb_append_cstr(sb, "funk");
 	sb_append_tp_argumente(sb, &this->argumente);
-	nob_sb_append_cstr(sb, ": ");
+	nob_sb_append_cstr(sb, " -> ");
 	sb_append_konkrete_tipe(sb, this->terugkeer);
 }
 PRINT_IMPL(tp_funksie)
@@ -230,3 +230,4 @@ SB_APPEND_FUNC(konkrete_tipe) {
 	nob_sb_append_cstr(sb, " ");
 	sb_append_tipe(sb, &this->tipe);
 }
+PRINT_IMPL(konkrete_tipe)
