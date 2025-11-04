@@ -660,7 +660,7 @@ bool parse_roep(struct et_roep *res) {
 		}
 		first = false;
 
-		struct expr expr;
+		struct expr expr = {0};
 		if (!parse_expr(&expr)) {
 			nob_da_foreach(struct expr, it, &res->argumente) {
 				expr_destroy(it);
@@ -674,6 +674,10 @@ bool parse_roep(struct et_roep *res) {
 	}
 
 	if (state.curr.type != SYM_RPAREN) {
+		nob_da_foreach(struct expr, it, &res->argumente) {
+			expr_destroy(it);
+		}
+		nob_da_free(res->argumente);
 		token_destroy(&res->funksie);
 
 		parse_error(
@@ -691,7 +695,7 @@ bool parse_blok(struct et_blok *res) {
 	advance();
 
 	while (state.curr.type != SYM_RBRACE && state.curr.type != TOK_EOF) {
-		struct expr expr;
+		struct expr expr = {0};
 		if (!parse_expr(&expr)) continue;
 		nob_da_append(res, expr);
 		if (state.curr.type != SYM_SEMICOLON) {

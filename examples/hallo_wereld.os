@@ -2,4 +2,5 @@
 
 funk hoof() {
 	druk_lyn("Hallo, wêreld!");
+	druk_lyn("Hallo, wêreld!");
 };
