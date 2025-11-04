@@ -1,6 +1,6 @@
 laat eksterne druk_nommer: funk(: heel);
 
-laat tel_by: funk(: heel, : heel) -> heel = funk(a: heel, b: heel) -> heel {
+laat tel_by: funk(: heel, : heel) -> heel = funk(a: heel, b: heel) -> :heel {
 	a + b
 };
 

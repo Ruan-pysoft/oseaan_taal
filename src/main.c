@@ -1,23 +1,73 @@
+#include "lexer.h"
+
+#define NOB_IMPLEMENTATION
+#include "nob.h"
+
+void tokenise_file(const char *filename) {
+	printf("\n=== %s ===\n", filename);
+
+	Nob_String_Builder source = {0};
+	if (!nob_read_entire_file(filename, &source)) exit(1);
+	nob_sb_append_null(&source);
+
+	struct source_tracking lex_state = st_init(filename, source.items);
+
+	Nob_String_Builder sb = {0};
+
+	struct token tok;
+	do {
+		tok = lex_token(&lex_state);
+
+		print_token(&tok);
+		putchar('\n');
+
+		token_destroy(&tok);
+	} while (tok.type != TOK_EOF);
+
+	nob_sb_free(sb);
+	nob_sb_free(source);
+}
+
+int main(int argc, char **argv) {
+	(void) argc;
+	(void) argv;
+
+	tokenise_file("examples/hallo_wereld.os");
+	tokenise_file("examples/basiese_funksies.os");
+	tokenise_file("examples/fib.os");
+	tokenise_file("examples/wisselvorme.os");
+
+}
+
+#if 0
 #include "parser.h"
 #include "types.h"
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
+void print_program_ast(const char *filename) {
+	Nob_String_Builder sb = {0};
+
+	if (!nob_read_entire_file(filename, &sb)) exit(1);
+
+	nob_sb_append_null(&sb);
+	struct parse_state state = parse_state_init(sb.items);
+	struct ast ast = parse_ast(&state);
+
+	printf("Displaying ast for file %s:\n", filename);
+	print_ast(&ast);
+
+	ast_destroy(&ast);
+	nob_sb_free(sb);
+}
+
 int main(int argc, char **argv) {
 	(void) argc;
 	(void) argv;
 
-	/*
-	Nob_String_Builder sb = {0};
-
-	if (!nob_read_entire_file("examples/hallo_wereld.os", &sb)) exit(1);
-
-	nob_sb_append_null(&sb);
-	struct parse_state state = parse_state_init(sb.items);
-
-	nob_sb_free(sb);
-	*/
+	print_program_ast("examples/hallo_wereld.os");
+	print_program_ast("examples/basiese_funksies.os");
 
 	struct konkrete_tipe druk_nommer_tipe = {
 		.tipe_vlh = v_konstant,
@@ -112,3 +162,4 @@ int main(int argc, char **argv) {
 	konkrete_tipe_destroy(&tel_by_tipe);
 	konkrete_tipe_destroy(&druk_nommer_tipe);
 }
+#endif
