@@ -67,8 +67,8 @@ int main(int argc, char **argv) {
 
 	print_program_ast("examples/hallo_wereld.os");
 	print_program_ast("examples/basiese_funksies.os");
-	print_program_ast("examples/fib.os");
-	print_program_ast("examples/wisselvorme.os");
+	//print_program_ast("examples/fib.os");
+	//print_program_ast("examples/wisselvorme.os");
 
 	struct konkrete_tipe druk_nommer_tipe = {
 		.tipe_vlh = v_konstant,

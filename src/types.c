@@ -139,7 +139,7 @@ SB_APPEND_FUNC(tp_funksie) {
 
 	nob_sb_append_cstr(sb, "funk");
 	sb_append_tp_argumente(sb, &this->argumente);
-	nob_sb_append_cstr(sb, " -> ");
+	nob_sb_append_cstr(sb, " -> :");
 	sb_append_konkrete_tipe(sb, this->terugkeer);
 }
 PRINT_IMPL(tp_funksie)

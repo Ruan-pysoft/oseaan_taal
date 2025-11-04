@@ -9,7 +9,7 @@ struct expr;
 
 struct tipeerde_naam {
 	struct token naam;
-	struct tipe tipe;
+	struct konkrete_tipe tipe;
 };
 DECL_STD_METHS(tipeerde_naam);
 
@@ -42,7 +42,7 @@ struct st_funksie {
 	bool benoemde_terugkeerwaarde;
 	union {
 		struct tipeerde_naam benoem;
-		struct tipe onbenoem;
+		struct konkrete_tipe onbenoem;
 	};
 	struct expr *lyf;
 };
@@ -92,7 +92,7 @@ struct et_funk {
 	bool benoemde_terugkeerwaarde;
 	union {
 		struct tipeerde_naam benoem;
-		struct tipe onbenoem;
+		struct konkrete_tipe onbenoem;
 	};
 	struct expr *lyf;
 };

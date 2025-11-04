@@ -13,14 +13,14 @@ DESTROY_METH(tipeerde_naam) {
 	assert(this != NULL);
 
 	token_destroy(&this->naam);
-	tipe_destroy(&this->tipe);
+	konkrete_tipe_destroy(&this->tipe);
 }
 COPY_METH(tipeerde_naam) {
 	assert(this != NULL);
 
 	struct tipeerde_naam res = {0};
 	res.naam = token_copy(&this->naam);
-	res.tipe = tipe_copy(&this->tipe);
+	res.tipe = konkrete_tipe_copy(&this->tipe);
 
 	return res;
 }
@@ -28,7 +28,7 @@ SB_APPEND_FUNC(tipeerde_naam) {
 	assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "NAAM(%.*s: ", (int)this->naam.len, &this->naam.pos.source[this->naam.pos.idx]);
-	sb_append_tipe(sb, &this->tipe);
+	sb_append_konkrete_tipe(sb, &this->tipe);
 	nob_sb_append_cstr(sb, ")");
 }
 PRINT_IMPL(tipeerde_naam)
@@ -114,7 +114,7 @@ DESTROY_METH(st_funksie) {
 	if (this->benoemde_terugkeerwaarde) {
 		tipeerde_naam_destroy(&this->benoem);
 	} else {
-		tipe_destroy(&this->onbenoem);
+		konkrete_tipe_destroy(&this->onbenoem);
 	}
 	expr_destroy(this->lyf);
 	free(this->lyf);
@@ -131,7 +131,7 @@ COPY_METH(st_funksie) {
 	if (this->benoemde_terugkeerwaarde) {
 		res.benoem = tipeerde_naam_copy(&this->benoem);
 	} else {
-		res.onbenoem = tipe_copy(&this->onbenoem);
+		res.onbenoem = konkrete_tipe_copy(&this->onbenoem);
 	}
 	res.lyf = malloc(sizeof(*this->lyf));
 	*res.lyf = expr_copy(this->lyf);
@@ -155,7 +155,7 @@ SB_APPEND_FUNC(st_funksie) {
 		sb_append_tipeerde_naam(sb, &this->benoem);
 	} else {
 		nob_sb_append_cstr(sb, ":");
-		sb_append_tipe(sb, &this->onbenoem);
+		sb_append_konkrete_tipe(sb, &this->onbenoem);
 	}
 	nob_sb_append_cstr(sb, " = ");
 	sb_append_expr(sb, this->lyf);
@@ -269,7 +269,7 @@ DESTROY_METH(et_funk) {
 	if (this->benoemde_terugkeerwaarde) {
 		tipeerde_naam_destroy(&this->benoem);
 	} else {
-		tipe_destroy(&this->onbenoem);
+		konkrete_tipe_destroy(&this->onbenoem);
 	}
 	expr_destroy(this->lyf);
 	free(this->lyf);
@@ -285,7 +285,7 @@ COPY_METH(et_funk) {
 	if (this->benoemde_terugkeerwaarde) {
 		res.benoem = tipeerde_naam_copy(&this->benoem);
 	} else {
-		res.onbenoem = tipe_copy(&this->onbenoem);
+		res.onbenoem = konkrete_tipe_copy(&this->onbenoem);
 	}
 	res.lyf = malloc(sizeof(*this->lyf));
 	*res.lyf = expr_copy(this->lyf);
@@ -309,7 +309,7 @@ SB_APPEND_FUNC(et_funk) {
 		sb_append_tipeerde_naam(sb, &this->benoem);
 	} else {
 		nob_sb_append_cstr(sb, ":");
-		sb_append_tipe(sb, &this->onbenoem);
+		sb_append_konkrete_tipe(sb, &this->onbenoem);
 	}
 	nob_sb_append_cstr(sb, " = ");
 	sb_append_expr(sb, this->lyf);
@@ -511,7 +511,7 @@ static struct {
 	struct token next;
 } state;
 
-static void advance(void) {
+static inline void advance(void) {
 	if (state.has_next) {
 		token_destroy(&state.curr);
 		state.curr = state.next;
@@ -522,7 +522,7 @@ static void advance(void) {
 		state.curr = lex_token(&state.state);
 	}
 }
-static struct token *peek(void) {
+static inline struct token *peek(void) {
 	if (state.has_next) return &state.next;
 	if (state.curr.type == TOK_EOF) return &state.curr;
 	state.has_next = true;
@@ -530,7 +530,7 @@ static struct token *peek(void) {
 	return &state.next;
 }
 
-void fprint_current(const char *prefix, FILE *file) {
+static inline void fprint_current(const char *prefix, FILE *file) {
 	fputs(prefix, file);
 	fprintf(file, "%s:%lu,%lu:\n", state.curr.pos.filename, state.curr.pos.line, state.curr.pos.idx - state.curr.pos.line_start + 1);
 	const char *line = &state.curr.pos.source[state.curr.pos.line_start];
@@ -559,7 +559,7 @@ void fprint_current(const char *prefix, FILE *file) {
 		fprintf(stderr, msg, __VA_ARGS__); \
 		fputc('\n', stderr); \
 	} while (0)
-void recover_error(void) {
+static inline void recover_error(void) {
 	while (state.curr.type != TOK_EOF && state.curr.type != SYM_SEMICOLON) {
 		advance();
 	}
@@ -568,8 +568,9 @@ void recover_error(void) {
 	}
 }
 
-bool parse_expr(struct expr *res);
-bool parse_insluiting(struct st_insluiting *res) {
+static bool parse_expr(struct expr *res);
+static bool parse_tipe(struct konkrete_tipe *res, enum veranderlikheid outo_ver);
+static bool parse_insluiting(struct st_insluiting *res) {
 	assert(state.curr.type == SYM_AT);
 	advance();
 
@@ -595,7 +596,80 @@ bool parse_insluiting(struct st_insluiting *res) {
 
 	return true;
 }
-bool parse_funksie_definisie(struct st_funksie *res) {
+static bool parse_laat(struct statement *res) {
+	assert(state.curr.type == KW_LAAT);
+	advance();
+
+	if (state.curr.type == KW_EKSTERN) {
+		parse_error(
+			"nog nie geïmplimenteer nie",
+			"externe veranderlikes is nog nie geïmplimenteer nie", NULL
+		);
+		advance();
+	}
+
+	if (state.curr.type != IDENTIFIER) {
+		parse_error(
+			"het veranderlike naam verwag",
+			"verwag in 'n laat stelling dat die naam van die veranderlike na die \"laat\" sleutelwoord kom", NULL
+		);
+		recover_error();
+		return false;
+	}
+	struct token naam = token_copy(&state.curr);
+	advance();
+
+	if (state.curr.type != SYM_COLON) {
+		token_destroy(&naam);
+
+		parse_error(
+			"het dubbelpunt verwag",
+			"verwag 'n dubbelpunt na 'n veranderlike se naam in 'n laat stelling", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	struct konkrete_tipe tipe = {0};
+	if (!parse_tipe(&tipe, v_konstant)) {
+		token_destroy(&naam);
+		return false;
+	}
+
+	if (state.curr.type == SYM_SEMICOLON) {
+		res->type = ST_DEKLARASIE;
+		res->deklarasie.veranderlike.naam = naam;
+		res->deklarasie.veranderlike.tipe = tipe;
+		return true;
+	}
+
+	if (state.curr.type != SYM_EQUAL) {
+		token_destroy(&naam);
+		konkrete_tipe_destroy(&tipe);
+
+		parse_error(
+			"het 'n kommapunt of gelykaan verwag",
+			"verwag na 'n deklarasie óf 'n kommapunt (vir net 'n deklarasie) óf 'n gelykaan simbool gevolg deur 'n uitdrukking (vir 'n definisie)", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	struct expr *wat = calloc(1, sizeof(*wat));
+	if (!parse_expr(wat)) {
+		free(wat);
+		token_destroy(&naam);
+		konkrete_tipe_destroy(&tipe);
+		return false;
+	}
+
+	res->type = ST_DEFINISIE;
+	res->definisie.veranderlike.naam = naam;
+	res->definisie.veranderlike.tipe = tipe;
+	res->definisie.wat = wat;
+	return true;
+}
+static bool parse_funksie_definisie(struct st_funksie *res) {
 	assert(state.curr.type == KW_FUNK);
 	advance();
 
@@ -621,7 +695,69 @@ bool parse_funksie_definisie(struct st_funksie *res) {
 		return false;
 	} else advance();
 
+	bool first = true;
+	while (state.curr.type != SYM_RPAREN && state.curr.type != TOK_EOF) {
+		if (!first) {
+			if (state.curr.type != SYM_COMMA) {
+				parse_error(
+					"het 'n komma verwag",
+					"tussen twee funksie argumente moet daar 'n komma wees", NULL
+				);
+			} else advance();
+		}
+		first = false;
+
+		struct tipeerde_naam argument = {0};
+		if (state.curr.type != IDENTIFIER) {
+			token_destroy(&res->naam);
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+
+			parse_error(
+				"het 'n naam verwag",
+				"verwag 'n argumentnaam vir elke argument in 'n funksie definisie", NULL
+			);
+			recover_error();
+			return false;
+		}
+		argument.naam = token_copy(&state.curr);
+		advance();
+
+		if (state.curr.type != SYM_COLON) {
+			token_destroy(&res->naam);
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			token_destroy(&argument.naam);
+
+			parse_error(
+				"het 'n dubbelpunt verwag",
+				"verwag 'n dubbelpunt tussen elke funksie argument en sy tipe", NULL
+			);
+			recover_error();
+			return false;
+		} else advance();
+
+		if (!parse_tipe(&argument.tipe, v_konstant)) {
+			token_destroy(&res->naam);
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			token_destroy(&argument.naam);
+			return false;
+		}
+		nob_da_append(&res->argumente, argument);
+	}
+
 	if (state.curr.type != SYM_RPAREN) {
+		nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+			tipeerde_naam_destroy(it);
+		}
+		nob_da_free(res->argumente);
 		token_destroy(&res->naam);
 
 		parse_error(
@@ -632,17 +768,241 @@ bool parse_funksie_definisie(struct st_funksie *res) {
 		return false;
 	} else advance();
 
+	if (state.curr.type == SYM_ARROW) {
+		advance();
+
+		if (state.curr.type == IDENTIFIER) {
+			res->benoemde_terugkeerwaarde = true;
+			res->benoem.naam = token_copy(&state.curr);
+			advance();
+		}
+
+		if (state.curr.type != SYM_COLON) {
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			token_destroy(&res->naam);
+			if (res->benoemde_terugkeerwaarde) token_destroy(&res->benoem.naam);
+
+			parse_error(
+				"het 'n dubbelpunt verwag",
+				res->benoemde_terugkeerwaarde
+				? "verwag 'n dubbelpunt tussen die terugkeernaam en terugkeertipe van 'n funksie"
+				: "verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie",
+				NULL
+			);
+			recover_error();
+			return false;
+		} else advance();
+		if (!parse_tipe(res->benoemde_terugkeerwaarde ? &res->benoem.tipe : &res->onbenoem, v_veranderlik)) {
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			token_destroy(&res->naam);
+			if (res->benoemde_terugkeerwaarde) token_destroy(&res->benoem.naam);
+			return false;
+		}
+	} else {
+		res->benoemde_terugkeerwaarde = false;
+		res->onbenoem.tipe_vlh = v_veranderlik;
+		res->onbenoem.tipe.klas = kvt_basies;
+		res->onbenoem.tipe.basies = bt_niks;
+	}
+
+	if ((res->benoemde_terugkeerwaarde ? res->benoem.tipe.tipe_vlh : res->onbenoem.tipe_vlh) != v_veranderlik) {
+		fputs("WAARSKUWING: funksie terugkeerwaarde is nie veranderlik nie\n", stderr);
+		fprint_current("    ", stderr);
+		fputs("    As die terugkeerwaarde van 'n funksie nie veranderlik is nie kan dit nie gestel word nie, en die funksie kan nie 'n waarde teruggee nie. Hierdie is amper definitief 'n vout\n", stderr);
+	}
+
 	res->lyf = calloc(1, sizeof(*res->lyf));
 	if (!parse_expr(res->lyf)) {
+		nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+			tipeerde_naam_destroy(it);
+		}
+		nob_da_free(res->argumente);
 		free(res->lyf);
 		token_destroy(&res->naam);
+		if (res->benoemde_terugkeerwaarde) {
+			tipeerde_naam_destroy(&res->benoem);
+		} else {
+			konkrete_tipe_destroy(&res->onbenoem);
+		}
 		return false;
 	}
 
 	return true;
 }
 
-bool parse_roep(struct et_roep *res) {
+static bool parse_funksie_tipe(struct tp_funksie *res) {
+	assert(state.curr.type == KW_FUNK);
+	advance();
+
+	if (state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN) {
+		parse_error(
+			"het linker hakie verwag",
+			"verwag na die \"funk\" sleutelwoord in 'n funksie tipe die funksie se argumente, wat met 'n linker hakie begin", NULL
+		);
+		fputs("WENK: dit lyk of jy 'n funksie naam na \"funk\" probeer sit het; dit is net in funksie definisies toegelaat, 'n funksie tipe het nie 'n naam daarmee geassosiëer nie", stderr);
+		advance();
+		advance();
+	} else if (state.curr.type != SYM_LPAREN) {
+		parse_error(
+			"het linker hakie verwag",
+			"verwag na die \"funk\" sleutelwoord in 'n funksie tipe die funksie se argumente, wat met 'n linker hakie begin", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	bool first = true;
+	while (state.curr.type != SYM_RPAREN && state.curr.type != TOK_EOF) {
+		if (!first) {
+			if (state.curr.type != SYM_COMMA) {
+				parse_error(
+					"het 'n komma verwag",
+					"tussen twee funksie tipe argumente moet daar 'n komma wees", NULL
+				);
+			} else advance();
+		}
+		first = false;
+
+		if (state.curr.type == IDENTIFIER && peek()->type == SYM_COLON) {
+			parse_error(
+				"het 'n dubbelpunt verwag",
+				"verwag 'n dubbelpunt voor elke argumenttipe in 'n funksie tipe", NULL
+			);
+			fputs("WENK: dit lyk of jy 'n argument naam probeer spesifiseer het; dit is net in funksie definisies en funksie waardes toegelaat, 'n funksie tipe het nie name met sy argumente geassosiëer nie", stderr);
+			advance();
+			advance();
+		} else if (state.curr.type != SYM_COLON) {
+			nob_da_foreach(struct konkrete_tipe, it, &res->argumente) {
+				konkrete_tipe_destroy(it);
+			}
+			nob_da_free(res->argumente);
+
+			parse_error(
+				"het 'n dubbelpunt verwag",
+				"verwag 'n dubbelpunt voor elke argumenttipe in 'n funksie tipe", NULL
+			);
+			recover_error();
+			return false;
+		} else advance();
+
+		struct konkrete_tipe tipe = {0};
+		if (!parse_tipe(&tipe, v_konstant)) {
+			nob_da_foreach(struct konkrete_tipe, it, &res->argumente) {
+				konkrete_tipe_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			return false;
+		}
+		nob_da_append(&res->argumente, tipe);
+	}
+
+	if (state.curr.type != SYM_RPAREN) {
+		nob_da_foreach(struct konkrete_tipe, it, &res->argumente) {
+			konkrete_tipe_destroy(it);
+		}
+		nob_da_free(res->argumente);
+
+		parse_error(
+			"het reger hakie verwag",
+			"verwag dat die argumente van 'n funksie tipe met 'n regter hakie moet eindig", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	if (state.curr.type != SYM_ARROW) {
+		res->terugkeer = malloc(sizeof(*res->terugkeer));
+		res->terugkeer->tipe_vlh = v_veranderlik;
+		res->terugkeer->tipe.klas = kvt_basies;
+		res->terugkeer->tipe.basies = bt_niks;
+		return true;
+	} else advance();
+
+	if (state.curr.type == IDENTIFIER && peek()->type == SYM_COLON) {
+		parse_error(
+			"het 'n dubbelpunt verwag",
+			"verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie tipe", NULL
+		);
+		fputs("WENK: dit lyk of jy 'n terugkeernaam probeer spesifiseer het; dit is net in funksie definisies en funksie waardes toegelaat, 'n funksie tipe het nie 'n naam met sy terugkeerwaarde geassosiëer nie", stderr);
+		advance();
+		advance();
+	} else if (state.curr.type != SYM_COLON) {
+		nob_da_foreach(struct konkrete_tipe, it, &res->argumente) {
+			konkrete_tipe_destroy(it);
+		}
+		nob_da_free(res->argumente);
+
+		parse_error(
+			"het 'n dubbelpunt verwag",
+			"verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie tipe", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	res->terugkeer = calloc(1, sizeof(*res->terugkeer));
+	if (!parse_tipe(res->terugkeer, v_veranderlik)) {
+		free(res->terugkeer);
+		nob_da_foreach(struct konkrete_tipe, it, &res->argumente) {
+			konkrete_tipe_destroy(it);
+		}
+		nob_da_free(res->argumente);
+
+		return false;
+	}
+
+	if (res->terugkeer->tipe_vlh != v_veranderlik) {
+		fputs("WAARSKUWING: funksie terugkeerwaarde is nie veranderlik nie\n", stderr);
+		fprint_current("    ", stderr);
+		fputs("    As die terugkeerwaarde van 'n funksie nie veranderlik is nie kan dit nie gestel word nie, en die funksie kan nie 'n waarde teruggee nie. Hierdie is amper definitief 'n vout\n", stderr);
+	}
+
+	return true;
+}
+static bool parse_tipe(struct konkrete_tipe *res, enum veranderlikheid outo_ver) {
+	res->tipe_vlh = outo_ver;
+	if (state.curr.type == KW_KON) {
+		res->tipe_vlh = v_konstant;
+		advance();
+	} else if (state.curr.type == KW_VER) {
+		res->tipe_vlh = v_veranderlik;
+		advance();
+	} else if (state.curr.type == KW_ERF) {
+		res->tipe_vlh = v_erfbaar;
+		advance();
+	}
+	switch (state.curr.type) {
+		case KW_HEEL: {
+			res->tipe.klas = kvt_basies;
+			res->tipe.basies = bt_heel64;
+			advance();
+			return true;
+		} break;
+		case KW_FUNK: {
+			res->tipe.klas = kvt_funksie;
+			return parse_funksie_tipe(&res->tipe.funksie);
+		}
+		default: {
+			parse_error(
+				"het 'n tipe verwag",
+				"tans is daar net heel of funksies", NULL
+			);
+			recover_error();
+			return false;
+		} break;
+	}
+
+	assert(false && "Should be unreachable");
+	return false;
+}
+
+static bool parse_roep(struct et_roep *res) {
 	assert(state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN);
 	res->funksie = token_copy(&state.curr);
 	advance();
@@ -654,7 +1014,7 @@ bool parse_roep(struct et_roep *res) {
 			if (state.curr.type != SYM_COMMA) {
 				parse_error(
 					"het 'n komma verwag",
-					"tussen twee funksie argumente moet daar 'n komme wees", NULL
+					"tussen twee funksie argumente moet daar 'n komma wees", NULL
 				);
 			} else advance();
 		}
@@ -667,7 +1027,7 @@ bool parse_roep(struct et_roep *res) {
 			}
 			nob_da_free(res->argumente);
 			token_destroy(&res->funksie);
-			recover_error();
+			// recover_error(); // NOTE: hierdie behoort nie nodig te wees nie?
 			return false;
 		}
 		nob_da_append(&res->argumente, expr);
@@ -690,7 +1050,7 @@ bool parse_roep(struct et_roep *res) {
 
 	return true;
 }
-bool parse_blok(struct et_blok *res) {
+static bool parse_blok(struct et_blok *res) {
 	assert(state.curr.type == SYM_LBRACE);
 	advance();
 
@@ -699,15 +1059,26 @@ bool parse_blok(struct et_blok *res) {
 		if (!parse_expr(&expr)) continue;
 		nob_da_append(res, expr);
 		if (state.curr.type != SYM_SEMICOLON) {
+			nob_da_foreach(struct expr, it, res) {
+				expr_destroy(it);
+			}
+			nob_da_free(*res);
+
 			parse_error(
 				"het 'n kommapunt verwag",
 				"ná elke uitdrukking in 'n blok moet daar 'n kommapunt wees", NULL
 			);
 			recover_error();
+			return false;
 		} else advance();
 	}
 
 	if (state.curr.type == TOK_EOF) {
+		nob_da_foreach(struct expr, it, res) {
+			expr_destroy(it);
+		}
+		nob_da_free(*res);
+
 		parse_error(
 			"vroeë einde van lêer",
 			"einde van lêer bevind terwyl besig om blok te parse", NULL
@@ -717,8 +1088,162 @@ bool parse_blok(struct et_blok *res) {
 
 	return true;
 }
+static bool parse_funksie_waarde(struct et_funk *res) {
+	assert(state.curr.type == KW_FUNK);
+	advance();
 
-bool parse_expr(struct expr *res) {
+	if (state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN) {
+		parse_error(
+			"het linker hakie verwag",
+			"verwag na die \"funk\" sleutelwoord in 'n funksie waarde die funksie se argumente, wat met 'n linker hakie begin", NULL
+		);
+		fputs("WENK: dit lyk of jy 'n funksie naam na \"funk\" probeer sit het; dit is net in funksie definisies toegelaat, 'n funksie waarde het nie 'n naam daarmee geassosiëer nie", stderr);
+		advance();
+		advance();
+	} else if (state.curr.type != SYM_LPAREN) {
+		parse_error(
+			"het linker hakie verwag",
+			"verwag na die \"funk\" sleutelwoord in 'n funksie waarde die funksie se argumente, wat met 'n linker hakie begin", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	bool first = true;
+	while (state.curr.type != SYM_RPAREN && state.curr.type != TOK_EOF) {
+		if (!first) {
+			if (state.curr.type != SYM_COMMA) {
+				parse_error(
+					"het 'n komma verwag",
+					"tussen twee funksie argumente moet daar 'n komma wees", NULL
+				);
+			} else advance();
+		}
+		first = false;
+
+		struct tipeerde_naam argument = {0};
+		if (state.curr.type != IDENTIFIER) {
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+
+			parse_error(
+				"het 'n naam verwag",
+				"verwag 'n argumentnaam vir elke argument in 'n funksie waarde", NULL
+			);
+			recover_error();
+			return false;
+		}
+		argument.naam = token_copy(&state.curr);
+		advance();
+
+		if (state.curr.type != SYM_COLON) {
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			token_destroy(&argument.naam);
+
+			parse_error(
+				"het 'n dubbelpunt verwag",
+				"verwag 'n dubbelpunt tussen elke funksie argument en sy tipe", NULL
+			);
+			recover_error();
+			return false;
+		} else advance();
+
+		if (!parse_tipe(&argument.tipe, v_konstant)) {
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			token_destroy(&argument.naam);
+			return false;
+		}
+		nob_da_append(&res->argumente, argument);
+	}
+
+	if (state.curr.type != SYM_RPAREN) {
+		nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+			tipeerde_naam_destroy(it);
+		}
+		nob_da_free(res->argumente);
+
+		parse_error(
+			"het regter hakie verwag",
+			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig", NULL
+		);
+		recover_error();
+		return false;
+	} else advance();
+
+	if (state.curr.type == SYM_ARROW) {
+		advance();
+
+		if (state.curr.type == IDENTIFIER) {
+			res->benoemde_terugkeerwaarde = true;
+			res->benoem.naam = token_copy(&state.curr);
+			advance();
+		}
+
+		if (state.curr.type != SYM_COLON) {
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			if (res->benoemde_terugkeerwaarde) token_destroy(&res->benoem.naam);
+
+			parse_error(
+				"het 'n dubbelpunt verwag",
+				res->benoemde_terugkeerwaarde
+				? "verwag 'n dubbelpunt tussen die terugkeernaam en terugkeertipe van 'n funksie"
+				: "verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie",
+				NULL
+			);
+			recover_error();
+			return false;
+		} else advance();
+		if (!parse_tipe(res->benoemde_terugkeerwaarde ? &res->benoem.tipe : &res->onbenoem, v_veranderlik)) {
+			nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+				tipeerde_naam_destroy(it);
+			}
+			nob_da_free(res->argumente);
+			if (res->benoemde_terugkeerwaarde) token_destroy(&res->benoem.naam);
+			return false;
+		}
+	} else {
+		res->benoemde_terugkeerwaarde = false;
+		res->onbenoem.tipe_vlh = v_veranderlik;
+		res->onbenoem.tipe.klas = kvt_basies;
+		res->onbenoem.tipe.basies = bt_niks;
+	}
+
+	if ((res->benoemde_terugkeerwaarde ? res->benoem.tipe.tipe_vlh : res->onbenoem.tipe_vlh) != v_veranderlik) {
+		fputs("WAARSKUWING: funksie terugkeerwaarde is nie veranderlik nie\n", stderr);
+		fprint_current("    ", stderr);
+		fputs("    As die terugkeerwaarde van 'n funksie nie veranderlik is nie kan dit nie gestel word nie, en die funksie kan nie 'n waarde teruggee nie. Hierdie is amper definitief 'n vout\n", stderr);
+	}
+
+	res->lyf = calloc(1, sizeof(*res->lyf));
+	if (!parse_expr(res->lyf)) {
+		nob_da_foreach(struct tipeerde_naam, it, &res->argumente) {
+			tipeerde_naam_destroy(it);
+		}
+		nob_da_free(res->argumente);
+		free(res->lyf);
+		if (res->benoemde_terugkeerwaarde) {
+			tipeerde_naam_destroy(&res->benoem);
+		} else {
+			konkrete_tipe_destroy(&res->onbenoem);
+		}
+		return false;
+	}
+
+	return true;
+}
+
+static bool parse_expr(struct expr *res) {
 	switch (state.curr.type) {
 		case IDENTIFIER: {
 			struct token *next = peek();
@@ -743,6 +1268,10 @@ bool parse_expr(struct expr *res) {
 		case SYM_LBRACE: {
 			res->type = ET_BLOK;
 			return parse_blok(&res->blok);
+		} break;
+		case KW_FUNK: {
+			res->type = ET_FUNK;
+			return parse_funksie_waarde(&res->funk);
 		} break;
 		default: {
 			return false;
@@ -771,12 +1300,11 @@ struct program parse_file(struct source_tracking source) {
 				}
 			} break;
 			case KW_LAAT: {
-				parse_error(
-					"nog nie geïmplimenteer nie",
-					"delkarasies en definisies is nog nie geïmplimenteer nie", NULL
-				);
-				recover_error();
-				goto continue_while_loop;
+				if (parse_laat(&stmt)) {
+					nob_da_append(&res, stmt);
+				} else {
+					goto continue_while_loop;
+				}
 			} break;
 			case KW_FUNK: {
 				stmt.type = ST_FUNKSIE;
