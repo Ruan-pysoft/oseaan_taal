@@ -26,7 +26,10 @@ COPY_METH(tipeerde_naam) {
 SB_APPEND_FUNC(tipeerde_naam) {
 	bt_assert(sb != NULL && this != NULL);
 
-	nob_sb_appendf(sb, "NAAM(%.*s: ", (int)this->naam.len, &this->naam.pos.source[this->naam.pos.idx]);
+	nob_sb_appendf(
+		sb, "NAAM("SRC_POS_FMT": ",
+		SRC_POS_FARGS(this->naam.pos)
+	);
 	sb_append_konkrete_tipe(sb, &this->tipe);
 	nob_sb_append_cstr(sb, ")");
 }
@@ -48,7 +51,10 @@ COPY_METH(st_insluiting) {
 SB_APPEND_FUNC(st_insluiting) {
 	bt_assert(sb != NULL && this != NULL);
 
-	nob_sb_appendf(sb, "SLUIT_IN(%.*s)", (int)this->module.len, &this->module.pos.source[this->module.pos.idx]);
+	nob_sb_appendf(
+		sb, "SLUIT_IN("SRC_POS_FMT")",
+		SRC_POS_FARGS(this->module.pos)
+	);
 }
 PRINT_IMPL(st_insluiting)
 
@@ -140,7 +146,10 @@ COPY_METH(st_funksie) {
 SB_APPEND_FUNC(st_funksie) {
 	bt_assert(sb != NULL && this != NULL);
 
-	nob_sb_appendf(sb, "FUNK(%.*s, (", (int)this->naam.len, &this->naam.pos.source[this->naam.pos.idx]);
+	nob_sb_appendf(
+		sb, "FUNK("SRC_POS_FMT", (",
+		SRC_POS_FARGS(this->naam.pos)
+	);
 	bool first = true;
 	nob_da_foreach(struct tipeerde_naam, it, &this->argumente) {
 		if (!first) {
@@ -353,7 +362,10 @@ COPY_METH(et_roep) {
 SB_APPEND_FUNC(et_roep) {
 	bt_assert(sb != NULL && this != NULL);
 
-	nob_sb_appendf(sb, "ROEP(%.*s", (int)this->funksie.len, &this->funksie.pos.source[this->funksie.pos.idx]);
+	nob_sb_appendf(
+		sb, "ROEP("SRC_POS_FMT,
+		SRC_POS_FARGS(this->funksie.pos)
+	);
 	nob_da_foreach(struct expr, it, &this->argumente) {
 		nob_sb_append_cstr(sb, ", ");
 		sb_append_expr(sb, it);
@@ -382,7 +394,10 @@ COPY_METH(et_stel_veranderlike) {
 SB_APPEND_FUNC(et_stel_veranderlike) {
 	bt_assert(sb != NULL && this != NULL);
 
-	nob_sb_appendf(sb, "STEL(%.*s = ", (int)this->veranderlike.len, &this->veranderlike.pos.source[this->veranderlike.pos.idx]);
+	nob_sb_appendf(
+		sb, "STEL("SRC_POS_FMT" = ",
+		SRC_POS_FARGS(this->veranderlike.pos)
+	);
 	sb_append_expr(sb, this->na);
 	nob_sb_append_cstr(sb, ")");
 }
@@ -412,7 +427,10 @@ COPY_METH(et_tweevoud_operasie) {
 SB_APPEND_FUNC(et_tweevoud_operasie) {
 	bt_assert(sb != NULL && this != NULL);
 
-	nob_sb_appendf(sb, "OP(%.*s, ", (int)this->operasie.len, &this->operasie.pos.source[this->operasie.pos.idx]);
+	nob_sb_appendf(
+		sb, "OP("SRC_POS_FMT", ",
+		SRC_POS_FARGS(this->operasie.pos)
+	);
 	sb_append_expr(sb, this->links);
 	nob_sb_append_cstr(sb, ", ");
 	sb_append_expr(sb, this->regs);
@@ -440,7 +458,10 @@ COPY_METH(et_eenvoud_operasie) {
 SB_APPEND_FUNC(et_eenvoud_operasie) {
 	bt_assert(sb != NULL && this != NULL);
 
-	nob_sb_appendf(sb, "OP(%.*s, ", (int)this->operasie.len, &this->operasie.pos.source[this->operasie.pos.idx]);
+	nob_sb_appendf(
+		sb, "OP("SRC_POS_FMT", ",
+		SRC_POS_FARGS(this->operasie.pos)
+	);
 	sb_append_expr(sb, this->invoer);
 	nob_sb_append_cstr(sb, ")");
 }
@@ -462,7 +483,10 @@ COPY_METH(et_konstante) {
 SB_APPEND_FUNC(et_konstante) {
 	bt_assert(sb != NULL && this != NULL);
 
-	nob_sb_appendf(sb, "KONSTANTE(%.*s)", (int)this->konstante.len, &this->konstante.pos.source[this->konstante.pos.idx]);
+	nob_sb_appendf(
+		sb, "KONSTANTE("SRC_POS_FMT")",
+		SRC_POS_FARGS(this->konstante.pos)
+	);
 }
 PRINT_IMPL(et_konstante)
 
@@ -503,7 +527,10 @@ SB_APPEND_FUNC(expr) {
 	nob_sb_append_cstr(sb, "EXPR: ");
 	switch (this->type) {
 		case ET_VERANDERLIKE: {
-			nob_sb_appendf(sb, "VERANDERLIKE(%.*s)", (int)this->veranderlike.len, &this->veranderlike.pos.source[this->veranderlike.pos.idx]);
+			nob_sb_appendf(
+				sb, "VERANDERLIKE("SRC_POS_FMT")",
+				SRC_POS_FARGS(this->veranderlike.pos)
+			);
 		} break;
 		case ET_BLOK: sb_append_et_blok(sb, &this->blok); break;
 		case ET_FUNK: sb_append_et_funk(sb, &this->funk); break;
@@ -544,19 +571,14 @@ static inline struct token *peek(void) {
 }
 
 static inline void fprint_current(const char *prefix, FILE *file) {
-	const struct source_tracking *here = &state.curr.pos;
-	const char *line = &here->source[here->line_start];
+	const struct src_pos *here = &state.curr.pos;
+	const char *line = src_pos_getline(here);
 	const size_t start_idx_in_line = here->idx - here->line_start;
-	const size_t column = start_idx_in_line + 1;
-	size_t _line_len;
-	for (_line_len = 0; here->idx + _line_len < here->size; ++_line_len) {
-		if (line[_line_len] == '\n') break;
-	}
-	const size_t line_len = _line_len;
+	const size_t line_len = src_pos_comp_linelen(here);
 
 	// print current location: file, line, column
 	fputs(prefix, file);
-	fprintf(file, "%s:%lu,%lu:\n", here->filename, here->line, column);
+	fprintf(file, SRC_POS_LOC_FMT":\n", SRC_POS_LOC_FARGS(*here));
 
 	// print the line itself, rendering a tab as four spaces
 	fputs(prefix, file);
@@ -576,7 +598,7 @@ static inline void fprint_current(const char *prefix, FILE *file) {
 			for (size_t j = 0; j < 4; ++j) fputc(' ', file);
 		} else fputc(' ', file);
 	}
-	for (size_t i = 0; i < state.curr.len; ++i) {
+	for (size_t i = 0; i < state.curr.pos.len; ++i) {
 		fputc('^', file);
 	}
 	fputc('\n', file);
@@ -612,7 +634,7 @@ static bool parse_insluiting(struct st_insluiting *res) {
 	bt_assert(state.curr.type == SYM_AT);
 	advance();
 
-	if (state.curr.type != IDENTIFIER || state.curr.len != strlen("sluit_in") || strncmp(&state.curr.pos.source[state.curr.pos.idx], "sluit_in", state.curr.len)) {
+	if (state.curr.type != IDENTIFIER || src_pos_strcmp(&state.curr.pos, "sluit_in") != 0) {
 		parse_error(
 			"het \"sluit_in\" verwag",
 			"verwag die woord \"sluit_in\" ná 'n @ simbool"
@@ -1446,8 +1468,8 @@ struct program parse_file(struct source_tracking source) {
 			default: {
 				parse_error_fmt(
 					"het stelling verwag",
-					"verwag \"funk\", \"laat\", of \"@\", het \"%.*s\" gekry",
-					(int)state.curr.len, &state.curr.pos.source[state.curr.pos.idx]
+					"verwag \"funk\", \"laat\", of \"@\", het \""SRC_POS_FMT"\" gekry",
+					SRC_POS_FARGS(state.curr.pos)
 				);
 				recover_error();
 				goto continue_while_loop;

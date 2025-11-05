@@ -3,6 +3,25 @@
 
 #include "nob.h"
 
+struct src_pos {
+	const char *filename;
+	const char *source;
+	size_t size;
+	size_t idx;
+	size_t line_start;
+	size_t line;
+	size_t len;
+};
+const char *src_pos_getbuf(const struct src_pos *this);
+const char *src_pos_getline(const struct src_pos *this);
+size_t src_pos_comp_linelen(const struct src_pos *this);
+int src_pos_strcmp(const struct src_pos *this, const char *str);
+bool src_pos_eq(const struct src_pos *this, const struct src_pos *other);
+#define SRC_POS_FMT "%.*s"
+#define SRC_POS_FARGS(src_pos) (int)(src_pos).len, src_pos_getbuf(&(src_pos))
+#define SRC_POS_LOC_FMT "%s:%lu,%lu"
+#define SRC_POS_LOC_FARGS(src_pos) (src_pos).filename, (src_pos).line, ((src_pos).idx - (src_pos).line_start + 1)
+
 void fprint_backtrace(FILE *file);
 void _bt_assert_fail(const char *assertion, const char *file, int line, const char *func);
 #ifdef NDEBUG

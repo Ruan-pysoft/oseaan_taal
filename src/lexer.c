@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "utils.h"
 
 struct source_tracking st_init(const char *filename, const char *source) {
 	bt_assert(source != NULL);
@@ -91,6 +92,21 @@ void st_advby(struct source_tracking *this, size_t by) {
 	for (size_t i = 0; i < by; ++i) st_adv(this);
 }
 
+#define src_to_sp(len) st_to_sp(src, len)
+struct src_pos st_to_sp(const struct source_tracking *this, size_t len) {
+	bt_assert(this != NULL);
+
+	return (struct src_pos) {
+		.filename = this->filename,
+		.source = this->source,
+		.size = this->size,
+		.idx = this->idx,
+		.line_start = this->line_start,
+		.line = this->line,
+		.len = len,
+	};
+}
+
 DESTROY_METH(token) {
 	bt_assert(this != NULL);
 }
@@ -100,11 +116,9 @@ COPY_METH(token) {
 	struct token res = {
 		.type = this->type,
 		.pos = {0},
-		.len = 0,
 	};
 
 	res.pos = this->pos;
-	res.len = this->len;
 
 	return res;
 }
@@ -130,8 +144,11 @@ SB_APPEND_FUNC(token) {
 #undef X
 	}
 
-	if (this->len != 0) {
-		nob_sb_appendf(sb, " (%s:%lu \"%.*s\")", this->pos.filename, this->pos.idx, (int)this->len, &this->pos.source[this->pos.idx]);
+	if (this->pos.len != 0) {
+		nob_sb_appendf(
+			sb, " ("SRC_POS_LOC_FMT" \""SRC_POS_FMT"\")",
+			SRC_POS_LOC_FARGS(this->pos), SRC_POS_FARGS(this->pos)
+		);
 	}
 }
 PRINT_IMPL(token)
@@ -168,8 +185,7 @@ struct token lex_token(struct source_tracking *src) {
 
 #define X(tt, ch) if (src_match(ch)) { \
 		res.type = tt; \
-		res.pos = *src; \
-		res.len = strlen(ch); \
+		res.pos = src_to_sp(strlen(ch)); \
 		src_advby(strlen(ch)); \
 	} else
 	SYMBOL_TOKENS
@@ -183,15 +199,13 @@ struct token lex_token(struct source_tracking *src) {
 
 #define X(tt, st) if (strncmp(&begin.source[begin.idx], st, strlen(st)) == 0) { \
 		res.type = tt; \
-		res.pos = begin; \
-		res.len = len; \
+		res.pos = st_to_sp(&begin, len); \
 	} else
 		KW_TOKENS
 #undef X
 		{
 			res.type = IDENTIFIER;
-			res.pos = begin;
-			res.len = len;
+			res.pos = st_to_sp(&begin, len);
 		}
 	} else if (src_isat('"')) {
 		const struct source_tracking begin = *src;
@@ -207,20 +221,17 @@ struct token lex_token(struct source_tracking *src) {
 		}
 
 		res.type = STRING_LIT;
-		res.pos = begin;
-		res.len = src->idx - begin.idx;
+		res.pos = st_to_sp(&begin, src->idx - begin.idx);
 	} else if (src_checkcur(is_digit)) {
 		const struct source_tracking begin = *src;
 
 		src_skipwhile(is_digit);
 
 		res.type = NUMBER_LIT;
-		res.pos = begin;
-		res.len = src->idx - begin.idx;
+		res.pos = st_to_sp(&begin, src->idx - begin.idx);
 	} else {
 		res.type = TOK_UNKNOWN;
-		res.pos = *src;
-		res.len = 1;
+		res.pos = src_to_sp(1);
 		src_adv();
 	}
 

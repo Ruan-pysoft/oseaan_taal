@@ -119,13 +119,13 @@ static struct {
 	size_t n_errors;
 	struct scope curr_scope;
 } state;
-static void push_scope() {
+static void push_scope(void) {
 	struct scope *old = malloc(sizeof(*old));
 	*old = state.curr_scope;
 	state.curr_scope = (struct scope){0};
 	state.curr_scope.outer = old;
 }
-static void pop_scope() {
+static void pop_scope(void) {
 	struct scope *outer = state.curr_scope.outer;
 	state.curr_scope.outer = NULL;
 	scope_destroy(&state.curr_scope);
@@ -137,8 +137,8 @@ struct konkrete_tipe typeresolve_expr(struct expr *this) {
 		case ET_VERANDERLIKE: {
 			struct assoc *it = scope_get(
 				&state.curr_scope,
-				&this->veranderlike.pos.source[this->veranderlike.pos.idx],
-				this->veranderlike.len
+				src_pos_getbuf(&this->veranderlike.pos),
+				this->veranderlike.pos.len
 			);
 			if (it == NULL) {
 				fputs("FOUT: veranderlike nie voorheen verklaar nie!\n", stderr);
@@ -181,8 +181,8 @@ struct konkrete_tipe typeresolve_expr(struct expr *this) {
 			fputs("TODO: typecheck function args\n", stderr);
 			struct assoc *it = scope_get(
 				&state.curr_scope,
-				&this->roep.funksie.pos.source[this->roep.funksie.pos.idx],
-				this->roep.funksie.len
+				src_pos_getbuf(&this->roep.funksie.pos),
+				this->roep.funksie.pos.len
 			);
 			if (it == NULL) {
 				fputs("FOUT: veranderlike nie voorheen verklaar nie!\n", stderr);
@@ -217,15 +217,15 @@ struct konkrete_tipe typeresolve_expr(struct expr *this) {
 void typecheck_deklarasie(struct st_deklarasie *this) {
 	struct assoc *it = scope_get_local(
 		&state.curr_scope,
-		&this->veranderlike.naam.pos.source[this->veranderlike.naam.pos.idx],
-		this->veranderlike.naam.len
+		src_pos_getbuf(&this->veranderlike.naam.pos),
+		this->veranderlike.naam.pos.len
 	);
 
 	if (it == NULL) {
 		struct assoc new_assoc = {0};
 		new_assoc.naam = strndup(
-			&this->veranderlike.naam.pos.source[this->veranderlike.naam.pos.idx],
-			this->veranderlike.naam.len
+			src_pos_getbuf(&this->veranderlike.naam.pos),
+			this->veranderlike.naam.pos.len
 		);
 		new_assoc.tipe = konkrete_tipe_copy(&this->veranderlike.tipe);
 		nob_da_append(&state.curr_scope, new_assoc);
@@ -237,15 +237,15 @@ void typecheck_deklarasie(struct st_deklarasie *this) {
 void typecheck_definisie(struct st_definisie *this) {
 	struct assoc *it = scope_get_local(
 		&state.curr_scope,
-		&this->veranderlike.naam.pos.source[this->veranderlike.naam.pos.idx],
-		this->veranderlike.naam.len
+		src_pos_getbuf(&this->veranderlike.naam.pos),
+		this->veranderlike.naam.pos.len
 	);
 
 	if (it == NULL) {
 		struct assoc new_assoc = {0};
 		new_assoc.naam = strndup(
-			&this->veranderlike.naam.pos.source[this->veranderlike.naam.pos.idx],
-			this->veranderlike.naam.len
+			src_pos_getbuf(&this->veranderlike.naam.pos),
+			this->veranderlike.naam.pos.len
 		);
 		new_assoc.tipe = konkrete_tipe_copy(&this->veranderlike.tipe);
 		nob_da_append(&state.curr_scope, new_assoc);
@@ -264,8 +264,8 @@ void typecheck_definisie(struct st_definisie *this) {
 void typecheck_funksie_definisie(struct st_funksie *this) {
 	struct assoc *it = scope_get_local(
 		&state.curr_scope,
-		&this->naam.pos.source[this->naam.pos.idx],
-		this->naam.len
+		src_pos_getbuf(&this->naam.pos),
+		this->naam.pos.len
 	);
 
 	struct konkrete_tipe fn_tipe = {0};
@@ -286,8 +286,8 @@ void typecheck_funksie_definisie(struct st_funksie *this) {
 	if (it == NULL) {
 		struct assoc new_assoc = {0};
 		new_assoc.naam = strndup(
-			&this->naam.pos.source[this->naam.pos.idx],
-			this->naam.len
+			src_pos_getbuf(&this->naam.pos),
+			this->naam.pos.len
 		);
 		new_assoc.tipe = fn_tipe;
 		nob_da_append(&state.curr_scope, new_assoc);

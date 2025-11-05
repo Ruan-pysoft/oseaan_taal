@@ -60,10 +60,11 @@ char st_peek(const struct source_tracking *this);
 char st_adv(struct source_tracking *this);
 void st_advby(struct source_tracking *this, size_t by);
 
+struct src_pos st_to_sp(const struct source_tracking *this, size_t len);
+
 struct token {
 	enum token_type type;
-	struct source_tracking pos;
-	size_t len;
+	struct src_pos pos;
 };
 DECL_STD_METHS(token);
 
