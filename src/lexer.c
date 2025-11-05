@@ -156,9 +156,15 @@ struct token lex_token(struct source_tracking *src) {
 
 	struct token res = {0};
 
-	src_skipwhile(is_space);
+	do {
+		if (src_match("//")) {
+			src_skipwhile_expr(!src_atend() && src_at() != '\n');
+		}
 
-	if (src_atend()) return res;
+		src_skipwhile(is_space);
+
+		if (src_atend()) return res;
+	} while (src_match("//"));
 
 #define X(tt, ch) if (src_match(ch)) { \
 		res.type = tt; \
