@@ -568,12 +568,20 @@ static inline void fprint_current(const char *prefix, FILE *file) {
 	}
 	fputc('\n', file);
 }
-#define parse_error(short, msg, ...) do { \
+#define parse_error_fmt(short, msg, ...) do { \
 		++state.n_errors; \
 		fprintf(stderr, "FOUT: %s\n", short); \
 		fprint_current("      ", stderr); \
 		fputs("      ", stderr); \
 		fprintf(stderr, msg, __VA_ARGS__); \
+		fputc('\n', stderr); \
+	} while (0)
+#define parse_error(short, msg) do { \
+		++state.n_errors; \
+		fprintf(stderr, "FOUT: %s\n", short); \
+		fprint_current("      ", stderr); \
+		fputs("      ", stderr); \
+		fputs(msg, stderr); \
 		fputc('\n', stderr); \
 	} while (0)
 static inline void recover_error(void) {
@@ -594,7 +602,7 @@ static bool parse_insluiting(struct st_insluiting *res) {
 	if (state.curr.type != IDENTIFIER || state.curr.len != strlen("sluit_in") || strncmp(&state.curr.pos.source[state.curr.pos.idx], "sluit_in", state.curr.len)) {
 		parse_error(
 			"het \"sluit_in\" verwag",
-			"verwag die woord \"sluit_in\" ná 'n @ simbool", NULL
+			"verwag die woord \"sluit_in\" ná 'n @ simbool"
 		);
 		recover_error();
 		return false;
@@ -603,7 +611,7 @@ static bool parse_insluiting(struct st_insluiting *res) {
 	if (state.curr.type != IDENTIFIER) {
 		parse_error(
 			"het modulenaam verwag",
-			"verwag 'n naam van 'n module om in te sluit", NULL
+			"verwag 'n naam van 'n module om in te sluit"
 		);
 		recover_error();
 		return false;
@@ -620,7 +628,7 @@ static bool parse_laat(struct statement *res) {
 	if (state.curr.type == KW_EKSTERN) {
 		parse_error(
 			"nog nie geïmplimenteer nie",
-			"externe veranderlikes is nog nie geïmplimenteer nie", NULL
+			"externe veranderlikes is nog nie geïmplimenteer nie"
 		);
 		advance();
 	}
@@ -628,7 +636,7 @@ static bool parse_laat(struct statement *res) {
 	if (state.curr.type != IDENTIFIER) {
 		parse_error(
 			"het veranderlike naam verwag",
-			"verwag in 'n laat stelling dat die naam van die veranderlike na die \"laat\" sleutelwoord kom", NULL
+			"verwag in 'n laat stelling dat die naam van die veranderlike na die \"laat\" sleutelwoord kom"
 		);
 		recover_error();
 		return false;
@@ -641,7 +649,7 @@ static bool parse_laat(struct statement *res) {
 
 		parse_error(
 			"het dubbelpunt verwag",
-			"verwag 'n dubbelpunt na 'n veranderlike se naam in 'n laat stelling", NULL
+			"verwag 'n dubbelpunt na 'n veranderlike se naam in 'n laat stelling"
 		);
 		recover_error();
 		return false;
@@ -666,7 +674,7 @@ static bool parse_laat(struct statement *res) {
 
 		parse_error(
 			"het 'n kommapunt of gelykaan verwag",
-			"verwag na 'n deklarasie óf 'n kommapunt (vir net 'n deklarasie) óf 'n gelykaan simbool gevolg deur 'n uitdrukking (vir 'n definisie)", NULL
+			"verwag na 'n deklarasie óf 'n kommapunt (vir net 'n deklarasie) óf 'n gelykaan simbool gevolg deur 'n uitdrukking (vir 'n definisie)"
 		);
 		recover_error();
 		return false;
@@ -693,7 +701,7 @@ static bool parse_funksie_definisie(struct st_funksie *res) {
 	if (state.curr.type != IDENTIFIER) {
 		parse_error(
 			"het funksie naam verwag",
-			"verwag in 'n funksie definisie dat die naam van die funksie na die \"funk\" sleutelwoord kom", NULL
+			"verwag in 'n funksie definisie dat die naam van die funksie na die \"funk\" sleutelwoord kom"
 		);
 		recover_error();
 		return false;
@@ -706,7 +714,7 @@ static bool parse_funksie_definisie(struct st_funksie *res) {
 
 		parse_error(
 			"het linker hakie verwag",
-			"verwag na 'n funksie se naam die funksie se argumente, wat met 'n linker hakie begin", NULL
+			"verwag na 'n funksie se naam die funksie se argumente, wat met 'n linker hakie begin"
 		);
 		recover_error();
 		return false;
@@ -718,7 +726,7 @@ static bool parse_funksie_definisie(struct st_funksie *res) {
 			if (state.curr.type != SYM_COMMA) {
 				parse_error(
 					"het 'n komma verwag",
-					"tussen twee funksie argumente moet daar 'n komma wees", NULL
+					"tussen twee funksie argumente moet daar 'n komma wees"
 				);
 			} else advance();
 		}
@@ -734,7 +742,7 @@ static bool parse_funksie_definisie(struct st_funksie *res) {
 
 			parse_error(
 				"het 'n naam verwag",
-				"verwag 'n argumentnaam vir elke argument in 'n funksie definisie", NULL
+				"verwag 'n argumentnaam vir elke argument in 'n funksie definisie"
 			);
 			recover_error();
 			return false;
@@ -752,7 +760,7 @@ static bool parse_funksie_definisie(struct st_funksie *res) {
 
 			parse_error(
 				"het 'n dubbelpunt verwag",
-				"verwag 'n dubbelpunt tussen elke funksie argument en sy tipe", NULL
+				"verwag 'n dubbelpunt tussen elke funksie argument en sy tipe"
 			);
 			recover_error();
 			return false;
@@ -779,7 +787,7 @@ static bool parse_funksie_definisie(struct st_funksie *res) {
 
 		parse_error(
 			"het regter hakie verwag",
-			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig", NULL
+			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig"
 		);
 		recover_error();
 		return false;
@@ -806,8 +814,7 @@ static bool parse_funksie_definisie(struct st_funksie *res) {
 				"het 'n dubbelpunt verwag",
 				res->benoemde_terugkeerwaarde
 				? "verwag 'n dubbelpunt tussen die terugkeernaam en terugkeertipe van 'n funksie"
-				: "verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie",
-				NULL
+				: "verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie"
 			);
 			recover_error();
 			return false;
@@ -860,7 +867,7 @@ static bool parse_funksie_tipe(struct tp_funksie *res) {
 	if (state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN) {
 		parse_error(
 			"het linker hakie verwag",
-			"verwag na die \"funk\" sleutelwoord in 'n funksie tipe die funksie se argumente, wat met 'n linker hakie begin", NULL
+			"verwag na die \"funk\" sleutelwoord in 'n funksie tipe die funksie se argumente, wat met 'n linker hakie begin"
 		);
 		fputs("WENK: dit lyk of jy 'n funksie naam na \"funk\" probeer sit het; dit is net in funksie definisies toegelaat, 'n funksie tipe het nie 'n naam daarmee geassosiëer nie", stderr);
 		advance();
@@ -868,7 +875,7 @@ static bool parse_funksie_tipe(struct tp_funksie *res) {
 	} else if (state.curr.type != SYM_LPAREN) {
 		parse_error(
 			"het linker hakie verwag",
-			"verwag na die \"funk\" sleutelwoord in 'n funksie tipe die funksie se argumente, wat met 'n linker hakie begin", NULL
+			"verwag na die \"funk\" sleutelwoord in 'n funksie tipe die funksie se argumente, wat met 'n linker hakie begin"
 		);
 		recover_error();
 		return false;
@@ -880,7 +887,7 @@ static bool parse_funksie_tipe(struct tp_funksie *res) {
 			if (state.curr.type != SYM_COMMA) {
 				parse_error(
 					"het 'n komma verwag",
-					"tussen twee funksie tipe argumente moet daar 'n komma wees", NULL
+					"tussen twee funksie tipe argumente moet daar 'n komma wees"
 				);
 			} else advance();
 		}
@@ -889,7 +896,7 @@ static bool parse_funksie_tipe(struct tp_funksie *res) {
 		if (state.curr.type == IDENTIFIER && peek()->type == SYM_COLON) {
 			parse_error(
 				"het 'n dubbelpunt verwag",
-				"verwag 'n dubbelpunt voor elke argumenttipe in 'n funksie tipe", NULL
+				"verwag 'n dubbelpunt voor elke argumenttipe in 'n funksie tipe"
 			);
 			fputs("WENK: dit lyk of jy 'n argument naam probeer spesifiseer het; dit is net in funksie definisies en funksie waardes toegelaat, 'n funksie tipe het nie name met sy argumente geassosiëer nie", stderr);
 			advance();
@@ -902,7 +909,7 @@ static bool parse_funksie_tipe(struct tp_funksie *res) {
 
 			parse_error(
 				"het 'n dubbelpunt verwag",
-				"verwag 'n dubbelpunt voor elke argumenttipe in 'n funksie tipe", NULL
+				"verwag 'n dubbelpunt voor elke argumenttipe in 'n funksie tipe"
 			);
 			recover_error();
 			return false;
@@ -927,7 +934,7 @@ static bool parse_funksie_tipe(struct tp_funksie *res) {
 
 		parse_error(
 			"het reger hakie verwag",
-			"verwag dat die argumente van 'n funksie tipe met 'n regter hakie moet eindig", NULL
+			"verwag dat die argumente van 'n funksie tipe met 'n regter hakie moet eindig"
 		);
 		recover_error();
 		return false;
@@ -944,7 +951,7 @@ static bool parse_funksie_tipe(struct tp_funksie *res) {
 	if (state.curr.type == IDENTIFIER && peek()->type == SYM_COLON) {
 		parse_error(
 			"het 'n dubbelpunt verwag",
-			"verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie tipe", NULL
+			"verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie tipe"
 		);
 		fputs("WENK: dit lyk of jy 'n terugkeernaam probeer spesifiseer het; dit is net in funksie definisies en funksie waardes toegelaat, 'n funksie tipe het nie 'n naam met sy terugkeerwaarde geassosiëer nie", stderr);
 		advance();
@@ -957,7 +964,7 @@ static bool parse_funksie_tipe(struct tp_funksie *res) {
 
 		parse_error(
 			"het 'n dubbelpunt verwag",
-			"verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie tipe", NULL
+			"verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie tipe"
 		);
 		recover_error();
 		return false;
@@ -1008,7 +1015,7 @@ static bool parse_tipe(struct konkrete_tipe *res, enum veranderlikheid outo_ver)
 		default: {
 			parse_error(
 				"het 'n tipe verwag",
-				"tans is daar net heel of funksies", NULL
+				"tans is daar net heel of funksies"
 			);
 			recover_error();
 			return false;
@@ -1031,7 +1038,7 @@ static bool parse_roep(struct et_roep *res) {
 			if (state.curr.type != SYM_COMMA) {
 				parse_error(
 					"het 'n komma verwag",
-					"tussen twee funksie argumente moet daar 'n komma wees", NULL
+					"tussen twee funksie argumente moet daar 'n komma wees"
 				);
 			} else advance();
 		}
@@ -1059,7 +1066,7 @@ static bool parse_roep(struct et_roep *res) {
 
 		parse_error(
 			"het regter hakie verwag",
-			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig", NULL
+			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig"
 		);
 		recover_error();
 		return false;
@@ -1083,7 +1090,7 @@ static bool parse_blok(struct et_blok *res) {
 
 			parse_error(
 				"het 'n kommapunt verwag",
-				"ná elke uitdrukking in 'n blok moet daar 'n kommapunt wees", NULL
+				"ná elke uitdrukking in 'n blok moet daar 'n kommapunt wees"
 			);
 			recover_error();
 			return false;
@@ -1098,7 +1105,7 @@ static bool parse_blok(struct et_blok *res) {
 
 		parse_error(
 			"vroeë einde van lêer",
-			"einde van lêer bevind terwyl besig om blok te parse", NULL
+			"einde van lêer bevind terwyl besig om blok te parse"
 		);
 		return false;
 	} else advance();
@@ -1112,7 +1119,7 @@ static bool parse_funksie_waarde(struct et_funk *res) {
 	if (state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN) {
 		parse_error(
 			"het linker hakie verwag",
-			"verwag na die \"funk\" sleutelwoord in 'n funksie waarde die funksie se argumente, wat met 'n linker hakie begin", NULL
+			"verwag na die \"funk\" sleutelwoord in 'n funksie waarde die funksie se argumente, wat met 'n linker hakie begin"
 		);
 		fputs("WENK: dit lyk of jy 'n funksie naam na \"funk\" probeer sit het; dit is net in funksie definisies toegelaat, 'n funksie waarde het nie 'n naam daarmee geassosiëer nie", stderr);
 		advance();
@@ -1120,7 +1127,7 @@ static bool parse_funksie_waarde(struct et_funk *res) {
 	} else if (state.curr.type != SYM_LPAREN) {
 		parse_error(
 			"het linker hakie verwag",
-			"verwag na die \"funk\" sleutelwoord in 'n funksie waarde die funksie se argumente, wat met 'n linker hakie begin", NULL
+			"verwag na die \"funk\" sleutelwoord in 'n funksie waarde die funksie se argumente, wat met 'n linker hakie begin"
 		);
 		recover_error();
 		return false;
@@ -1132,7 +1139,7 @@ static bool parse_funksie_waarde(struct et_funk *res) {
 			if (state.curr.type != SYM_COMMA) {
 				parse_error(
 					"het 'n komma verwag",
-					"tussen twee funksie argumente moet daar 'n komma wees", NULL
+					"tussen twee funksie argumente moet daar 'n komma wees"
 				);
 			} else advance();
 		}
@@ -1147,7 +1154,7 @@ static bool parse_funksie_waarde(struct et_funk *res) {
 
 			parse_error(
 				"het 'n naam verwag",
-				"verwag 'n argumentnaam vir elke argument in 'n funksie waarde", NULL
+				"verwag 'n argumentnaam vir elke argument in 'n funksie waarde"
 			);
 			recover_error();
 			return false;
@@ -1164,7 +1171,7 @@ static bool parse_funksie_waarde(struct et_funk *res) {
 
 			parse_error(
 				"het 'n dubbelpunt verwag",
-				"verwag 'n dubbelpunt tussen elke funksie argument en sy tipe", NULL
+				"verwag 'n dubbelpunt tussen elke funksie argument en sy tipe"
 			);
 			recover_error();
 			return false;
@@ -1189,7 +1196,7 @@ static bool parse_funksie_waarde(struct et_funk *res) {
 
 		parse_error(
 			"het regter hakie verwag",
-			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig", NULL
+			"verwag dat die argumente van 'n funksie met 'n regter hakie moet eindig"
 		);
 		recover_error();
 		return false;
@@ -1215,8 +1222,7 @@ static bool parse_funksie_waarde(struct et_funk *res) {
 				"het 'n dubbelpunt verwag",
 				res->benoemde_terugkeerwaarde
 				? "verwag 'n dubbelpunt tussen die terugkeernaam en terugkeertipe van 'n funksie"
-				: "verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie",
-				NULL
+				: "verwag 'n dubbelpunt voor die terugkeertipe van 'n funksie"
 			);
 			recover_error();
 			return false;
@@ -1260,13 +1266,25 @@ static bool parse_funksie_waarde(struct et_funk *res) {
 	return true;
 }
 
-static bool parse_expr(struct expr *res) {
+static bool parse_expr_terminal(struct expr *res) {
 	switch (state.curr.type) {
 		case IDENTIFIER: {
 			struct token *next = peek();
 			if (next->type == SYM_LPAREN) {
 				res->type = ET_ROEP;
 				return parse_roep(&res->roep);
+			} else if (next->type == SYM_EQUAL) {
+				res->type = ET_STEL_VERANDERLIKE;
+				res->stel_veranderlike.veranderlike = token_copy(&state.curr);
+				advance();
+				advance();
+				res->stel_veranderlike.na = calloc(1, sizeof(*res->stel_veranderlike.na));
+				if (!parse_expr(res->stel_veranderlike.na)) {
+					free(res->stel_veranderlike.na);
+					token_destroy(&res->stel_veranderlike.veranderlike);
+					return false;
+				}
+				return true;
 			} else {
 				res->type = ET_VERANDERLIKE;
 				res->veranderlike = token_copy(&state.curr);
@@ -1290,10 +1308,23 @@ static bool parse_expr(struct expr *res) {
 			res->type = ET_FUNK;
 			return parse_funksie_waarde(&res->funk);
 		} break;
+		case SYM_LPAREN: {
+			advance();
+			if (!parse_expr(res)) return false;
+			if (state.curr.type != SYM_RPAREN) {
+				parse_error(
+					"het regter hakie verwag",
+					"verwag dat 'n uitdrukking wat met 'n linker hakie begin met 'n regter hakie eindig"
+				);
+				recover_error();
+				return false;
+			}
+			return true;
+		} break;
 		default: {
 			parse_error(
 				"het 'n uitdrukking verwag",
-				"het 'n uitdrukking verwag, uitdrukkings begin met 'n veranderlike se naam, 'n tekskonstante, 'n nommerkonstante, 'n linker brace, of die \"funk\" sleutelwoord", NULL
+				"het 'n uitdrukking verwag, uitdrukkings begin met 'n veranderlike se naam, 'n tekskonstante, 'n nommerkonstante, 'n linker brace, of die \"funk\" sleutelwoord"
 			);
 			recover_error();
 			return false;
@@ -1301,6 +1332,65 @@ static bool parse_expr(struct expr *res) {
 	}
 	assert(false && "This should be unreachable");
 	return false;
+}
+static bool parse_expr0(struct expr *res) {
+	if (!parse_expr_terminal(res)) return false;
+
+	while (state.curr.type == SYM_STAR) {
+		struct expr *links = calloc(1, sizeof(*links));
+		struct expr *regs = calloc(1, sizeof(*regs));
+		struct expr expr = {
+			.type = ET_TWEEVOUD_OPERASIE,
+			.tweevoud_operasie = {
+				.operasie = token_copy(&state.curr),
+				.links = links,
+				.regs = regs,
+			},
+		};
+		*links = *res;
+		advance();
+
+		if (!parse_expr_terminal(regs)) {
+			expr_destroy(expr.tweevoud_operasie.links);
+			token_destroy(&expr.tweevoud_operasie.operasie);
+			*res = (struct expr) {0};
+			return false;
+		}
+		*res = expr;
+	}
+
+	return true;
+}
+static bool parse_expr1(struct expr *res) {
+	if (!parse_expr0(res)) return false;
+
+	while (state.curr.type == SYM_PLUS) {
+		struct expr *links = calloc(1, sizeof(*links));
+		struct expr *regs = calloc(1, sizeof(*regs));
+		struct expr expr = {
+			.type = ET_TWEEVOUD_OPERASIE,
+			.tweevoud_operasie = {
+				.operasie = token_copy(&state.curr),
+				.links = links,
+				.regs = regs,
+			},
+		};
+		*links = *res;
+		advance();
+
+		if (!parse_expr0(regs)) {
+			expr_destroy(expr.tweevoud_operasie.links);
+			token_destroy(&expr.tweevoud_operasie.operasie);
+			*res = (struct expr) {0};
+			return false;
+		}
+		*res = expr;
+	}
+
+	return true;
+}
+static bool parse_expr(struct expr *res) {
+	return parse_expr1(res);
 }
 
 struct program parse_file(struct source_tracking source) {
@@ -1337,7 +1427,7 @@ struct program parse_file(struct source_tracking source) {
 				}
 			} break;
 			default: {
-				parse_error(
+				parse_error_fmt(
 					"het stelling verwag",
 					"verwag \"funk\", \"laat\", of \"@\", het \"%.*s\" gekry",
 					(int)state.curr.len, &state.curr.pos.source[state.curr.pos.idx]
@@ -1349,7 +1439,7 @@ struct program parse_file(struct source_tracking source) {
 		if (state.curr.type != SYM_SEMICOLON) {
 			parse_error(
 				"het 'n kommapunt verwag",
-				"ná elke insluiting, deklarasie, definisie, of funksiedefinisie moet daar 'n kommapunt wees", NULL
+				"ná elke insluiting, deklarasie, definisie, of funksiedefinisie moet daar 'n kommapunt wees"
 			);
 		} else advance();
 continue_while_loop:;
