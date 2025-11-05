@@ -1274,6 +1274,11 @@ static bool parse_expr(struct expr *res) {
 			return parse_funksie_waarde(&res->funk);
 		} break;
 		default: {
+			parse_error(
+				"het 'n uitdrukking verwag",
+				"het 'n uitdrukking verwag, uitdrukkings begin met 'n veranderlike se naam, 'n tekskonstante, 'n nommerkonstante, 'n linker brace, of die \"funk\" sleutelwoord", NULL
+			);
+			recover_error();
 			return false;
 		} break;
 	}
