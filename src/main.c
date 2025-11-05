@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
 #else
 #include "lexer.h"
 #include "parser.h"
+#include "typechecking.h"
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
@@ -56,6 +57,9 @@ void print_program_ast(const char *filename) {
 	struct program prog = parse_file(st_init(filename, source.items));
 
 	print_program(&prog);
+	if (!typecheck_program(&prog)) {
+		fputs("FOUT: Program se tipes werk nie uit nie!\n", stderr);
+	}
 
 	program_destroy(&prog);
 	nob_sb_free(source);

@@ -11,14 +11,15 @@ void _bt_assert_fail(const char *assertion, const char *file, int line, const ch
 #define bt_assert(expr) ((expr) ? (void)0 : _bt_assert_fail(#expr, __FILE__, __LINE__, __func__))
 #endif
 
-#define DESTROY_METH(typename) void typename ## _destroy(struct typename *this)
-#define COPY_METH(typename) struct typename typename ## _copy(const struct typename *this)
-#define SB_APPEND_FUNC(typename) void sb_append_ ## typename(Nob_String_Builder *sb, const struct typename *this)
-#define FPRINT_FUNC(typename) void fprint_ ## typename(const struct typename *this, FILE *file)
-#define PRINT_FUNC(typename) void print_ ## typename(const struct typename *this)
-#define SB_APPEND_FUNC_ENUM(typename) void sb_append_ ## typename(Nob_String_Builder *sb, const enum typename this)
-#define FPRINT_FUNC_ENUM(typename) void fprint_ ## typename(const enum typename this, FILE *file)
-#define PRINT_FUNC_ENUM(typename) void print_ ## typename(const enum typename this)
+#define UTIL_METH
+#define DESTROY_METH(typename) UTIL_METH void typename ## _destroy(struct typename *this)
+#define COPY_METH(typename) UTIL_METH struct typename typename ## _copy(const struct typename *this)
+#define SB_APPEND_FUNC(typename) UTIL_METH void sb_append_ ## typename(Nob_String_Builder *sb, const struct typename *this)
+#define FPRINT_FUNC(typename) UTIL_METH void fprint_ ## typename(const struct typename *this, FILE *file)
+#define PRINT_FUNC(typename) UTIL_METH void print_ ## typename(const struct typename *this)
+#define SB_APPEND_FUNC_ENUM(typename) UTIL_METH void sb_append_ ## typename(Nob_String_Builder *sb, const enum typename this)
+#define FPRINT_FUNC_ENUM(typename) UTIL_METH void fprint_ ## typename(const enum typename this, FILE *file)
+#define PRINT_FUNC_ENUM(typename) UTIL_METH void print_ ## typename(const enum typename this)
 
 #define PRINT_IMPL(typename) \
 FPRINT_FUNC(typename) { \
