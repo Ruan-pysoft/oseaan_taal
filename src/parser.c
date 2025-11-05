@@ -531,20 +531,37 @@ static inline struct token *peek(void) {
 }
 
 static inline void fprint_current(const char *prefix, FILE *file) {
-	fputs(prefix, file);
-	fprintf(file, "%s:%lu,%lu:\n", state.curr.pos.filename, state.curr.pos.line, state.curr.pos.idx - state.curr.pos.line_start + 1);
-	const char *line = &state.curr.pos.source[state.curr.pos.line_start];
-	size_t line_len;
-	for (line_len = 0; state.curr.pos.idx + line_len < state.curr.pos.size; ++line_len) {
-		if (line[line_len] == '\n') break;
+	const struct source_tracking *here = &state.curr.pos;
+	const char *line = &here->source[here->line_start];
+	const size_t start_idx_in_line = here->idx - here->line_start;
+	const size_t column = start_idx_in_line + 1;
+	size_t _line_len;
+	for (_line_len = 0; here->idx + _line_len < here->size; ++_line_len) {
+		if (line[_line_len] == '\n') break;
 	}
+	const size_t line_len = _line_len;
+
+	// print current location: file, line, column
+	fputs(prefix, file);
+	fprintf(file, "%s:%lu,%lu:\n", here->filename, here->line, column);
+
+	// print the line itself, rendering a tab as four spaces
 	fputs(prefix, file);
 	fputc(' ', file);
-	fprintf(file, "%.*s\n", (int)line_len, line);
+	for (size_t i = 0; i < line_len; ++i) {
+		if (line[i] == '\t') {
+			for (size_t j = 0; j < 4; ++j) fputc(' ', file);
+		} else fputc(line[i], file);
+	}
+	fputc('\n', file);
+
+	// print the pointer (via carats) to the current token
 	fputs(prefix, file);
 	fputc(' ', file);
-	for (size_t i = 0; i < state.curr.pos.idx - state.curr.pos.line_start; ++i) {
-		fputc(' ', file);
+	for (size_t i = 0; i < start_idx_in_line; ++i) {
+		if (line[i] == '\t') { // render tabs as four spaces
+			for (size_t j = 0; j < 4; ++j) fputc(' ', file);
+		} else fputc(' ', file);
 	}
 	for (size_t i = 0; i < state.curr.len; ++i) {
 		fputc('^', file);
