@@ -1,7 +1,7 @@
 #include "lexer.h"
 
 struct source_tracking st_init(const char *filename, const char *source) {
-	assert(source != NULL);
+	bt_assert(source != NULL);
 
 	return (struct source_tracking) {
 		.filename = filename,
@@ -14,31 +14,31 @@ struct source_tracking st_init(const char *filename, const char *source) {
 }
 #define src_atend() st_atend(src)
 bool st_atend(const struct source_tracking *this) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	return this->idx >= this->size;
 }
 #define src_at() st_at(src)
 char st_at(const struct source_tracking *this) {
-	assert(this != NULL && !st_atend(this));
+	bt_assert(this != NULL && !st_atend(this));
 
 	return this->source[this->idx];
 }
 #define src_isat(c) st_isat(src, c)
 bool st_isat(const struct source_tracking *this, char c) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	return !st_atend(this) && st_at(this) == c;
 }
 #define src_match(str) st_match(src, str)
 bool st_match(const struct source_tracking *this, const char *str) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	return this->size - this->idx >= strlen(str) && strncmp(&this->source[this->idx], str, strlen(str)) == 0;
 }
 #define src_advat(c) st_advat(src, c)
 bool st_advat(struct source_tracking *this, char c) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	if (!st_atend(this) && st_isat(this, c)) {
 		st_adv(this);
@@ -47,7 +47,7 @@ bool st_advat(struct source_tracking *this, char c) {
 }
 #define src_checkcur(check) st_checkcur(src, check)
 bool st_checkcur(const struct source_tracking *this, bool (*check)(char)) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	return !st_atend(this) && check(st_at(this));
 }
@@ -56,25 +56,25 @@ bool st_checkcur(const struct source_tracking *this, bool (*check)(char)) {
 		while (cond_expr) src_adv(); \
 	} while (0)
 void st_skipwhile(struct source_tracking *this, bool (*cond)(char)) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	while (st_checkcur(this, cond)) st_adv(this);
 }
 #define src_canpeek() st_canpeek(src)
 bool st_canpeek(const struct source_tracking *this) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	return this->idx+1 < this->size;
 }
 #define src_peek() st_peek(src)
 char st_peek(const struct source_tracking *this) {
-	assert(st_canpeek(this) && this != NULL);
+	bt_assert(st_canpeek(this) && this != NULL);
 
 	return this->source[this->idx+1];
 }
 #define src_adv() st_adv(src)
 char st_adv(struct source_tracking *this) {
-	assert(!st_atend(this) && this != NULL);
+	bt_assert(!st_atend(this) && this != NULL);
 
 	const char res = this->source[this->idx];
 	++this->idx;
@@ -86,16 +86,16 @@ char st_adv(struct source_tracking *this) {
 }
 #define src_advby(by) st_advby(src, by)
 void st_advby(struct source_tracking *this, size_t by) {
-	assert(this != NULL && this->size - this->idx >= by);
+	bt_assert(this != NULL && this->size - this->idx >= by);
 
 	for (size_t i = 0; i < by; ++i) st_adv(this);
 }
 
 DESTROY_METH(token) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 }
 COPY_METH(token) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct token res = {
 		.type = this->type,
@@ -109,7 +109,7 @@ COPY_METH(token) {
 	return res;
 }
 SB_APPEND_FUNC(token) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	switch (this->type) {
 		case TOK_EOF: {
@@ -152,7 +152,7 @@ bool is_alnum(char c) {
 }
 
 struct token lex_token(struct source_tracking *src) {
-	assert(src != NULL && src->source != NULL);
+	bt_assert(src != NULL && src->source != NULL);
 
 	struct token res = {0};
 

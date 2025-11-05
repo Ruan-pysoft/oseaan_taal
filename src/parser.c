@@ -1,6 +1,5 @@
 #include "parser.h"
 
-#include <assert.h>
 #include <unistd.h>
 
 #include "nob.h"
@@ -10,13 +9,13 @@
 #include "utils.h"
 
 DESTROY_METH(tipeerde_naam) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	token_destroy(&this->naam);
 	konkrete_tipe_destroy(&this->tipe);
 }
 COPY_METH(tipeerde_naam) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct tipeerde_naam res = {0};
 	res.naam = token_copy(&this->naam);
@@ -25,7 +24,7 @@ COPY_METH(tipeerde_naam) {
 	return res;
 }
 SB_APPEND_FUNC(tipeerde_naam) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "NAAM(%.*s: ", (int)this->naam.len, &this->naam.pos.source[this->naam.pos.idx]);
 	sb_append_konkrete_tipe(sb, &this->tipe);
@@ -34,12 +33,12 @@ SB_APPEND_FUNC(tipeerde_naam) {
 PRINT_IMPL(tipeerde_naam)
 
 DESTROY_METH(st_insluiting) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	token_destroy(&this->module);
 }
 COPY_METH(st_insluiting) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct st_insluiting res = {0};
 	res.module = token_copy(&this->module);
@@ -47,19 +46,19 @@ COPY_METH(st_insluiting) {
 	return res;
 }
 SB_APPEND_FUNC(st_insluiting) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "SLUIT_IN(%.*s)", (int)this->module.len, &this->module.pos.source[this->module.pos.idx]);
 }
 PRINT_IMPL(st_insluiting)
 
 DESTROY_METH(st_deklarasie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	tipeerde_naam_destroy(&this->veranderlike);
 }
 COPY_METH(st_deklarasie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct st_deklarasie res = {0};
 	res.veranderlike = tipeerde_naam_copy(&this->veranderlike);
@@ -67,7 +66,7 @@ COPY_METH(st_deklarasie) {
 	return res;
 }
 SB_APPEND_FUNC(st_deklarasie) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_append_cstr(sb, "DEKL(");
 	sb_append_tipeerde_naam(sb, &this->veranderlike);
@@ -76,14 +75,14 @@ SB_APPEND_FUNC(st_deklarasie) {
 PRINT_IMPL(st_deklarasie)
 
 DESTROY_METH(st_definisie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	tipeerde_naam_destroy(&this->veranderlike);
 	expr_destroy(this->wat);
 	free(this->wat);
 }
 COPY_METH(st_definisie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct st_definisie res = {0};
 	res.veranderlike = tipeerde_naam_copy(&this->veranderlike);
@@ -93,7 +92,7 @@ COPY_METH(st_definisie) {
 	return res;
 }
 SB_APPEND_FUNC(st_definisie) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_append_cstr(sb, "DEF(");
 	sb_append_tipeerde_naam(sb, &this->veranderlike);
@@ -104,7 +103,7 @@ SB_APPEND_FUNC(st_definisie) {
 PRINT_IMPL(st_definisie)
 
 DESTROY_METH(st_funksie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	token_destroy(&this->naam);
 	nob_da_foreach(struct tipeerde_naam, it, &this->argumente) {
@@ -120,7 +119,7 @@ DESTROY_METH(st_funksie) {
 	free(this->lyf);
 }
 COPY_METH(st_funksie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct st_funksie res = {0};
 	res.naam = token_copy(&this->naam);
@@ -139,7 +138,7 @@ COPY_METH(st_funksie) {
 	return res;
 }
 SB_APPEND_FUNC(st_funksie) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "FUNK(%.*s, (", (int)this->naam.len, &this->naam.pos.source[this->naam.pos.idx]);
 	bool first = true;
@@ -164,7 +163,7 @@ SB_APPEND_FUNC(st_funksie) {
 PRINT_IMPL(st_funksie)
 
 DESTROY_METH(statement) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	switch (this->type) {
 		case ST_INSLUITING: st_insluiting_destroy(&this->insluiting); break;
@@ -174,7 +173,7 @@ DESTROY_METH(statement) {
 	}
 }
 COPY_METH(statement) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct statement res = {0};
 	res.type = this->type;
@@ -187,7 +186,7 @@ COPY_METH(statement) {
 	return res;
 }
 SB_APPEND_FUNC(statement) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_append_cstr(sb, "STMT: ");
 	switch (this->type) {
@@ -200,7 +199,7 @@ SB_APPEND_FUNC(statement) {
 PRINT_IMPL(statement)
 
 DESTROY_METH(program) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	nob_da_foreach(struct statement, it, this) {
 		statement_destroy(it);
@@ -208,7 +207,7 @@ DESTROY_METH(program) {
 	nob_da_free(*this);
 }
 COPY_METH(program) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct program res = {0};
 	nob_da_foreach(struct statement, it, this) {
@@ -218,7 +217,7 @@ COPY_METH(program) {
 	return res;
 }
 SB_APPEND_FUNC(program) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "PROGRAM WITH %lu STATEMENTS:\n", this->count);
 	nob_da_foreach(struct statement, it, this) {
@@ -230,7 +229,7 @@ SB_APPEND_FUNC(program) {
 PRINT_IMPL(program)
 
 DESTROY_METH(et_blok) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	nob_da_foreach(struct expr, it, this) {
 		expr_destroy(it);
@@ -243,7 +242,7 @@ DESTROY_METH(et_blok) {
 	}
 }
 COPY_METH(et_blok) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct et_blok res = {0};
 	nob_da_foreach(struct expr, it, this) {
@@ -258,7 +257,7 @@ COPY_METH(et_blok) {
 	return res;
 }
 SB_APPEND_FUNC(et_blok) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_append_cstr(sb, "BLOK { ");
 	nob_da_foreach(struct expr, it, this) {
@@ -274,7 +273,7 @@ SB_APPEND_FUNC(et_blok) {
 PRINT_IMPL(et_blok)
 
 DESTROY_METH(et_funk) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	nob_da_foreach(struct tipeerde_naam, it, &this->argumente) {
 		tipeerde_naam_destroy(it);
@@ -289,7 +288,7 @@ DESTROY_METH(et_funk) {
 	free(this->lyf);
 }
 COPY_METH(et_funk) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct et_funk res = {0};
 	nob_da_foreach(struct tipeerde_naam, it, &this->argumente) {
@@ -307,7 +306,7 @@ COPY_METH(et_funk) {
 	return res;
 }
 SB_APPEND_FUNC(et_funk) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_append_cstr(sb, "FUNK((");
 	bool first = true;
@@ -332,7 +331,7 @@ SB_APPEND_FUNC(et_funk) {
 PRINT_IMPL(et_funk)
 
 DESTROY_METH(et_roep) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	token_destroy(&this->funksie);
 	nob_da_foreach(struct expr, it, &this->argumente) {
@@ -341,7 +340,7 @@ DESTROY_METH(et_roep) {
 	nob_da_free(this->argumente);
 }
 COPY_METH(et_roep) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct et_roep res = {0};
 	res.funksie = token_copy(&this->funksie);
@@ -352,7 +351,7 @@ COPY_METH(et_roep) {
 	return res;
 }
 SB_APPEND_FUNC(et_roep) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "ROEP(%.*s", (int)this->funksie.len, &this->funksie.pos.source[this->funksie.pos.idx]);
 	nob_da_foreach(struct expr, it, &this->argumente) {
@@ -364,14 +363,14 @@ SB_APPEND_FUNC(et_roep) {
 PRINT_IMPL(et_roep)
 
 DESTROY_METH(et_stel_veranderlike) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	token_destroy(&this->veranderlike);
 	expr_destroy(this->na);
 	free(this->na);
 }
 COPY_METH(et_stel_veranderlike) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct et_stel_veranderlike res = {0};
 	res.veranderlike = token_copy(&this->veranderlike);
@@ -381,7 +380,7 @@ COPY_METH(et_stel_veranderlike) {
 	return res;
 }
 SB_APPEND_FUNC(et_stel_veranderlike) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "STEL(%.*s = ", (int)this->veranderlike.len, &this->veranderlike.pos.source[this->veranderlike.pos.idx]);
 	sb_append_expr(sb, this->na);
@@ -390,7 +389,7 @@ SB_APPEND_FUNC(et_stel_veranderlike) {
 PRINT_IMPL(et_stel_veranderlike)
 
 DESTROY_METH(et_tweevoud_operasie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	token_destroy(&this->operasie);
 	expr_destroy(this->links);
@@ -399,7 +398,7 @@ DESTROY_METH(et_tweevoud_operasie) {
 	free(this->regs);
 }
 COPY_METH(et_tweevoud_operasie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct et_tweevoud_operasie res = {0};
 	res.operasie = token_copy(&this->operasie);
@@ -411,7 +410,7 @@ COPY_METH(et_tweevoud_operasie) {
 	return res;
 }
 SB_APPEND_FUNC(et_tweevoud_operasie) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "OP(%.*s, ", (int)this->operasie.len, &this->operasie.pos.source[this->operasie.pos.idx]);
 	sb_append_expr(sb, this->links);
@@ -422,14 +421,14 @@ SB_APPEND_FUNC(et_tweevoud_operasie) {
 PRINT_IMPL(et_tweevoud_operasie)
 
 DESTROY_METH(et_eenvoud_operasie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	token_destroy(&this->operasie);
 	expr_destroy(this->invoer);
 	free(this->invoer);
 }
 COPY_METH(et_eenvoud_operasie) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct et_eenvoud_operasie res = {0};
 	res.operasie = token_copy(&this->operasie);
@@ -439,7 +438,7 @@ COPY_METH(et_eenvoud_operasie) {
 	return res;
 }
 SB_APPEND_FUNC(et_eenvoud_operasie) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "OP(%.*s, ", (int)this->operasie.len, &this->operasie.pos.source[this->operasie.pos.idx]);
 	sb_append_expr(sb, this->invoer);
@@ -448,12 +447,12 @@ SB_APPEND_FUNC(et_eenvoud_operasie) {
 PRINT_IMPL(et_eenvoud_operasie)
 
 DESTROY_METH(et_konstante) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	token_destroy(&this->konstante);
 }
 COPY_METH(et_konstante) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct et_konstante res = {0};
 	res.konstante = token_copy(&this->konstante);
@@ -461,14 +460,14 @@ COPY_METH(et_konstante) {
 	return res;
 }
 SB_APPEND_FUNC(et_konstante) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_appendf(sb, "KONSTANTE(%.*s)", (int)this->konstante.len, &this->konstante.pos.source[this->konstante.pos.idx]);
 }
 PRINT_IMPL(et_konstante)
 
 DESTROY_METH(expr) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	switch (this->type) {
 		case ET_VERANDERLIKE: token_destroy(&this->veranderlike); break;
@@ -482,7 +481,7 @@ DESTROY_METH(expr) {
 	}
 }
 COPY_METH(expr) {
-	assert(this != NULL);
+	bt_assert(this != NULL);
 
 	struct expr res = {0};
 	res.type = this->type;
@@ -499,7 +498,7 @@ COPY_METH(expr) {
 	return res;
 }
 SB_APPEND_FUNC(expr) {
-	assert(sb != NULL && this != NULL);
+	bt_assert(sb != NULL && this != NULL);
 
 	nob_sb_append_cstr(sb, "EXPR: ");
 	switch (this->type) {
@@ -610,7 +609,7 @@ static inline void recover_error(void) {
 static bool parse_expr(struct expr *res);
 static bool parse_tipe(struct konkrete_tipe *res, enum veranderlikheid outo_ver);
 static bool parse_insluiting(struct st_insluiting *res) {
-	assert(state.curr.type == SYM_AT);
+	bt_assert(state.curr.type == SYM_AT);
 	advance();
 
 	if (state.curr.type != IDENTIFIER || state.curr.len != strlen("sluit_in") || strncmp(&state.curr.pos.source[state.curr.pos.idx], "sluit_in", state.curr.len)) {
@@ -636,7 +635,7 @@ static bool parse_insluiting(struct st_insluiting *res) {
 	return true;
 }
 static bool parse_laat(struct statement *res) {
-	assert(state.curr.type == KW_LAAT);
+	bt_assert(state.curr.type == KW_LAAT);
 	advance();
 
 	if (state.curr.type == KW_EKSTERN) {
@@ -709,7 +708,7 @@ static bool parse_laat(struct statement *res) {
 	return true;
 }
 static bool parse_funksie_definisie(struct st_funksie *res) {
-	assert(state.curr.type == KW_FUNK);
+	bt_assert(state.curr.type == KW_FUNK);
 	advance();
 
 	if (state.curr.type != IDENTIFIER) {
@@ -875,7 +874,7 @@ static bool parse_funksie_definisie(struct st_funksie *res) {
 }
 
 static bool parse_funksie_tipe(struct tp_funksie *res) {
-	assert(state.curr.type == KW_FUNK);
+	bt_assert(state.curr.type == KW_FUNK);
 	advance();
 
 	if (state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN) {
@@ -1036,12 +1035,12 @@ static bool parse_tipe(struct konkrete_tipe *res, enum veranderlikheid outo_ver)
 		} break;
 	}
 
-	assert(false && "Should be unreachable");
+	bt_assert(false && "Should be unreachable");
 	return false;
 }
 
 static bool parse_roep(struct et_roep *res) {
-	assert(state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN);
+	bt_assert(state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN);
 	res->funksie = token_copy(&state.curr);
 	advance();
 	advance();
@@ -1089,7 +1088,7 @@ static bool parse_roep(struct et_roep *res) {
 	return true;
 }
 static bool parse_blok(struct et_blok *res) {
-	assert(state.curr.type == SYM_LBRACE);
+	bt_assert(state.curr.type == SYM_LBRACE);
 	advance();
 
 	while (state.curr.type != SYM_RBRACE && state.curr.type != TOK_EOF) {
@@ -1131,7 +1130,7 @@ static bool parse_blok(struct et_blok *res) {
 	return true;
 }
 static bool parse_funksie_waarde(struct et_funk *res) {
-	assert(state.curr.type == KW_FUNK);
+	bt_assert(state.curr.type == KW_FUNK);
 	advance();
 
 	if (state.curr.type == IDENTIFIER && peek()->type == SYM_LPAREN) {
@@ -1348,7 +1347,7 @@ static bool parse_expr_terminal(struct expr *res) {
 			return false;
 		} break;
 	}
-	assert(false && "This should be unreachable");
+	bt_assert(false && "This should be unreachable");
 	return false;
 }
 static bool parse_expr0(struct expr *res) {

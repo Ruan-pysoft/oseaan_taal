@@ -9,6 +9,7 @@ const char *files[] = {
 	"parser",
 	"types",
 	"lexer",
+	"utils",
 };
 
 const char *flags[] = {
@@ -16,7 +17,7 @@ const char *flags[] = {
 	"-Wextra",
 	"-pedantic",
 	"-I./nob.h",
-	"-g",
+	"-g", "-rdynamic",
 	"-fsanitize=address",
 	"-pg",
 };

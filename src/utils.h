@@ -3,6 +3,14 @@
 
 #include "nob.h"
 
+void fprint_backtrace(FILE *file);
+void _bt_assert_fail(const char *assertion, const char *file, int line, const char *func);
+#ifdef NDEBUG
+#define bt_assert(expr) ((void)0)
+#else
+#define bt_assert(expr) ((expr) ? (void)0 : _bt_assert_fail(#expr, __FILE__, __LINE__, __func__))
+#endif
+
 #define DESTROY_METH(typename) void typename ## _destroy(struct typename *this)
 #define COPY_METH(typename) struct typename typename ## _copy(const struct typename *this)
 #define SB_APPEND_FUNC(typename) void sb_append_ ## typename(Nob_String_Builder *sb, const struct typename *this)

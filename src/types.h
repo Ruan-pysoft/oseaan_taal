@@ -50,6 +50,7 @@ enum tp_basiese_tipe {
 	bt_heel_masjien,
 };
 DECL_DISPLAY_METHS_ENUM(tp_basiese_tipe);
+bool tp_basiese_tipe_tequiv(enum tp_basiese_tipe lhs, enum tp_basiese_tipe rhs);
 static const char *tp_basiese_tipe_str[] = {
 	[bt_niks] = "niks",
 	[bt_karakter] = "karakter",
@@ -72,12 +73,14 @@ struct tp_verwysing {
 	struct konkrete_tipe *na;
 };
 DECL_STD_METHS(tp_verwysing);
+bool tp_verwysing_tequiv(struct tp_verwysing *lhs, struct tp_verwysing *rhs);
 struct tp_vaste_lys {
 	// 'n lys met 'n sekere, vaste lengte van 'n sekere tipe
 	struct konkrete_tipe *van;
 	size_t lengte;
 };
 DECL_STD_METHS(tp_vaste_lys);
+bool tp_vaste_lys_tequiv(struct tp_vaste_lys *lhs, struct tp_vaste_lys *rhs);
 struct tp_dinamiese_lys {
 	// 'n lys met 'n dinamiese lengte,
 	// dws die lengte kan verander word terwyl die program hardloop,
@@ -87,6 +90,7 @@ struct tp_dinamiese_lys {
 	//       net so, as die waardes veranderlik is, dan is die lengte ook
 };
 DECL_STD_METHS(tp_dinamiese_lys);
+bool tp_dinamiese_lys_tequiv(struct tp_dinamiese_lys *lhs, struct tp_dinamiese_lys *rhs);
 struct tp_argumente {
 	// die argumentelys van 'n funksie, die name van die argumente maak nie 'n verskil aan die tipe nie
 	// 'n "dynamic array", gemaak om met nob.h te werk
@@ -95,6 +99,7 @@ struct tp_argumente {
 	size_t capacity;
 };
 DECL_STD_METHS(tp_argumente);
+bool tp_argumente_tequiv(struct tp_argumente *lhs, struct tp_argumente *rhs);
 struct tp_funksie {
 	// 'n funksie; vir die tipe maak net die terugkeertipe en die tipes van die argumente saak
 	// argumentname en die funksie se naam maak nie saam nie
@@ -109,6 +114,7 @@ struct tp_funksie {
 	struct tp_argumente argumente;
 };
 DECL_STD_METHS(tp_funksie);
+bool tp_funksie_tequiv(struct tp_funksie *lhs, struct tp_funksie *rhs);
 struct tipe {
 	enum klas_van_tipe klas;
 	union {
@@ -120,11 +126,13 @@ struct tipe {
 	};
 };
 DECL_STD_METHS(tipe);
+bool tipe_tequiv(struct tipe *lhs, struct tipe *rhs);
 struct konkrete_tipe {
 	// 'n waarde: het nie net 'n tipe nie, maar ook 'n veranderlikheid daarby
 	struct tipe tipe;
 	enum veranderlikheid tipe_vlh;
 };
 DECL_STD_METHS(konkrete_tipe);
+bool konkrete_tipe_tequiv(struct konkrete_tipe *lhs, struct konkrete_tipe *rhs);
 
 #endif /* TYPES_H */
