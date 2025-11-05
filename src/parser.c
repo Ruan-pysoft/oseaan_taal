@@ -236,6 +236,11 @@ DESTROY_METH(et_blok) {
 		expr_destroy(it);
 	}
 	nob_da_free(*this);
+
+	if (this->res) {
+		expr_destroy(this->res);
+		free(this->res);
+	}
 }
 COPY_METH(et_blok) {
 	assert(this != NULL);
@@ -243,6 +248,11 @@ COPY_METH(et_blok) {
 	struct et_blok res = {0};
 	nob_da_foreach(struct expr, it, this) {
 		nob_da_append(&res, expr_copy(it));
+	}
+
+	if (this->res) {
+		res.res = malloc(sizeof(*res.res));
+		*res.res = expr_copy(this->res);
 	}
 
 	return res;
@@ -254,6 +264,10 @@ SB_APPEND_FUNC(et_blok) {
 	nob_da_foreach(struct expr, it, this) {
 		sb_append_expr(sb, it);
 		nob_sb_append_cstr(sb, "; ");
+	}
+	if (this->res) {
+		sb_append_expr(sb, this->res);
+		nob_sb_append_cstr(sb, " ");
 	}
 	nob_sb_append_cstr(sb, "}");
 }
@@ -1081,7 +1095,14 @@ static bool parse_blok(struct et_blok *res) {
 	while (state.curr.type != SYM_RBRACE && state.curr.type != TOK_EOF) {
 		struct expr expr = {0};
 		if (!parse_expr(&expr)) continue;
+		if (state.curr.type == SYM_RBRACE) {
+			// expr at end of block without following semicolon
+			res->res = malloc(sizeof(*res->res));
+			*res->res = expr;
+			break;
+		}
 		nob_da_append(res, expr);
+
 		if (state.curr.type != SYM_SEMICOLON) {
 			nob_da_foreach(struct expr, it, res) {
 				expr_destroy(it);
@@ -1098,10 +1119,7 @@ static bool parse_blok(struct et_blok *res) {
 	}
 
 	if (state.curr.type == TOK_EOF) {
-		nob_da_foreach(struct expr, it, res) {
-			expr_destroy(it);
-		}
-		nob_da_free(*res);
+		et_blok_destroy(res);
 
 		parse_error(
 			"vroeë einde van lêer",

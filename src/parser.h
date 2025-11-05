@@ -81,6 +81,8 @@ struct et_blok {
 	struct expr *items;
 	size_t count;
 	size_t capacity;
+
+	struct expr *res; // nullable
 };
 DECL_STD_METHS(et_blok);
 struct et_funk {
