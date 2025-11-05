@@ -119,6 +119,18 @@ static struct {
 	size_t n_errors;
 	struct scope curr_scope;
 } state;
+static void push_scope() {
+	struct scope *old = malloc(sizeof(*old));
+	*old = state.curr_scope;
+	state.curr_scope = (struct scope){0};
+	state.curr_scope.outer = old;
+}
+static void pop_scope() {
+	struct scope *outer = state.curr_scope.outer;
+	state.curr_scope.outer = NULL;
+	scope_destroy(&state.curr_scope);
+	state.curr_scope = *outer;
+}
 
 struct konkrete_tipe typeresolve_expr(struct expr *this) {
 	switch (this->type) {
@@ -312,6 +324,10 @@ bool typecheck_program(struct program *prog) {
 
 	nob_da_foreach(struct statement, it, prog) {
 		typecheck_statement(it);
+		assert(
+			state.curr_scope.outer == NULL
+			&& "Expected that all new scopes created in typechecking a statement should've been popped afterwards"
+		);
 	}
 
 	scope_destroy(&state.curr_scope);
